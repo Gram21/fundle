@@ -145,6 +145,26 @@ describe('parseImport validation', () => {
     expect(settings).toEqual({ ...DEFAULT_SETTINGS, baseCurrency: 'USD' })
   })
 
+  it('upgrades a proxyUrl that matches a known-obsolete past default', () => {
+    for (const stale of ['https://corsproxy.io/?url=', 'https://api.allorigins.win/raw?url=']) {
+      const { settings } = parseImport(
+        JSON.stringify({ schema: 'fundle/v1', portfolios: [], settings: { proxyUrl: stale } }),
+      )
+      expect(settings.proxyUrl).toBe(DEFAULT_SETTINGS.proxyUrl)
+    }
+  })
+
+  it('leaves a proxyUrl the user actually customized alone', () => {
+    const { settings } = parseImport(
+      JSON.stringify({
+        schema: 'fundle/v1',
+        portfolios: [],
+        settings: { proxyUrl: 'https://my-own-proxy.example/?url=' },
+      }),
+    )
+    expect(settings.proxyUrl).toBe('https://my-own-proxy.example/?url=')
+  })
+
   it('imports a file with no quotes/history keys (older export) with an empty cache', () => {
     const { quotes, history } = parseImport(
       JSON.stringify({ schema: 'fundle/v1', portfolios: [], settings: {} }),

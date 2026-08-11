@@ -123,11 +123,32 @@ function clampRefreshMinutes(value: unknown): number {
   return Math.min(120, Math.max(1, base))
 }
 
+/**
+ * Exact proxyUrl values this app has shipped as ITS OWN default in the past. Free CORS proxies
+ * keep dying (corsproxy.io now blocks every non-localhost origin outright; even the ones that
+ * still work go down or get rate-limited on their own) - each time the shipped default changes,
+ * anyone who already loaded the app is stuck on their persisted old value forever, since a saved
+ * setting always wins over a new code default. Auto-upgrading a value that matches a KNOWN past
+ * default (never a value the user typed themselves) is the only way a fix like that actually
+ * reaches someone who already has the app open.
+ */
+const OBSOLETE_PROXY_URLS = new Set([
+  'https://corsproxy.io/?url=',
+  'https://api.allorigins.win/raw?url=',
+])
+
+function migrateProxyUrl(value: unknown): string | undefined {
+  return typeof value === 'string' && OBSOLETE_PROXY_URLS.has(value.trim())
+    ? DEFAULT_SETTINGS.proxyUrl
+    : undefined
+}
+
 function mergeSettings(raw: unknown): Settings {
   const r = raw && typeof raw === 'object' ? (raw as Partial<Settings>) : {}
   return {
     ...DEFAULT_SETTINGS,
     ...r,
+    proxyUrl: migrateProxyUrl(r.proxyUrl) ?? r.proxyUrl ?? DEFAULT_SETTINGS.proxyUrl,
     apiKeys: { ...DEFAULT_SETTINGS.apiKeys, ...(r.apiKeys ?? {}) },
     refreshMinutes: clampRefreshMinutes(r.refreshMinutes),
   }

@@ -34,10 +34,11 @@ export const LEGACY_SCHEMA_ID = 'fin-tracker/v1' as const
 
 export const DEFAULT_SETTINGS: Settings = {
   providerId: 'yahoo',
-  // corsproxy.io now requires a paid key for any non-localhost origin (verified: it 403s/gates
-  // every production request), so it no longer works as a zero-setup default. allorigins.win's
-  // /raw endpoint has no such gate and forwards real JSON with CORS headers intact.
-  proxyUrl: 'https://api.allorigins.win/raw?url=',
+  // Free CORS proxies are unreliable individually - corsproxy.io now hard-gates every
+  // non-localhost origin, and even the ones that do work go down or get rate-limited
+  // sporadically (all verified during this app's own development). proxyUrl is a
+  // comma-separated fallback list (see data/proxy.ts): each is tried in order per request.
+  proxyUrl: 'https://api.allorigins.win/raw?url=,https://api.cors.lol/?url=,https://api.codetabs.com/v1/proxy?quest=',
   apiKeys: {},
   refreshMinutes: 5,
   baseCurrency: 'EUR',

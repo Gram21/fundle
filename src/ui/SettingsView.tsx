@@ -52,7 +52,8 @@ export default function SettingsView() {
       {provider?.needsProxy && (
         <p className="hint">
           Yahoo Finance sends no CORS header, so requests are routed through this proxy prefix; the target URL is
-          appended URL-encoded.
+          appended URL-encoded. You can list several, comma-separated — each is tried in order until one works,
+          since free proxies routinely go down or get rate-limited on their own.
         </p>
       )}
       <p className="hint">
