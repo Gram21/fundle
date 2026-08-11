@@ -34,7 +34,10 @@ export const LEGACY_SCHEMA_ID = 'fin-tracker/v1' as const
 
 export const DEFAULT_SETTINGS: Settings = {
   providerId: 'yahoo',
-  proxyUrl: 'https://corsproxy.io/?url=',
+  // corsproxy.io now requires a paid key for any non-localhost origin (verified: it 403s/gates
+  // every production request), so it no longer works as a zero-setup default. allorigins.win's
+  // /raw endpoint has no such gate and forwards real JSON with CORS headers intact.
+  proxyUrl: 'https://api.allorigins.win/raw?url=',
   apiKeys: {},
   refreshMinutes: 5,
   baseCurrency: 'EUR',

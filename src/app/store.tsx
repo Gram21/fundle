@@ -11,7 +11,7 @@ import {
 } from 'react'
 import type { Asset, ISODate, Lot, Portfolio, PriceSeries, Quote } from '../domain/types'
 import type { SearchResult } from '../data/PriceProvider'
-import { createProvider } from '../data'
+import { createProvider, createBoerseFrankfurtProvider, resolveProvider } from '../data'
 import { DEFAULT_SETTINGS, type Settings } from './schema'
 import { loadLocal, parseImport, saveLocal, serialize } from './persistence'
 
@@ -274,7 +274,6 @@ export function AppProvider(props: { children: ReactNode }) {
     dispatch({ type: 'REFRESH_START' })
     try {
       const { portfolios, settings } = stateRef.current
-      const provider = createProvider(settings)
       const earliest = earliestLotDateBySymbol(portfolios)
       const soldOut = fullySoldSymbols(portfolios)
       const latestSale = latestSaleDateBySymbol(portfolios)
@@ -284,6 +283,7 @@ export function AppProvider(props: { children: ReactNode }) {
 
       const settled = await Promise.allSettled(
         symbols.map(async (symbol) => {
+          const provider = resolveProvider(symbol, settings)
           const from = earliest.get(symbol) ?? today
           const isSoldOut = soldOut.has(symbol)
           // A fully-sold symbol never needs a live price again; history only needs to reach
@@ -396,8 +396,22 @@ export function AppProvider(props: { children: ReactNode }) {
         dispatch({ type: 'IMPORT', portfolios, settings, quotes, history })
         refresh()
       },
-      search(query) {
-        return createProvider(stateRef.current.settings).search(query)
+      async search(query) {
+        const { settings } = stateRef.current
+        const [primaryResult, bfResult] = await Promise.allSettled([
+          createProvider(settings).search(query),
+          createBoerseFrankfurtProvider({ proxyUrl: settings.proxyUrl }).search(query),
+        ])
+        if (primaryResult.status === 'rejected' && bfResult.status === 'rejected') {
+          throw primaryResult.reason
+        }
+        const primaryHits = primaryResult.status === 'fulfilled' ? primaryResult.value : []
+        const bfHits = bfResult.status === 'fulfilled' ? bfResult.value : []
+        // Skip a BF hit if the primary provider already found the same ISIN — no point
+        // offering the user two rows for one instrument.
+        const primaryIsins = new Set(primaryHits.map((r) => r.isin).filter(Boolean))
+        const extra = bfHits.filter((r) => !primaryIsins.has(r.isin))
+        return [...primaryHits, ...extra]
       },
     }),
     [refresh],

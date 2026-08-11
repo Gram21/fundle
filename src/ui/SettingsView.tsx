@@ -55,6 +55,11 @@ export default function SettingsView() {
           appended URL-encoded.
         </p>
       )}
+      <p className="hint">
+        Searching by ISIN also automatically checks Börse Frankfurt's public quote API, no key needed — it
+        covers a few instruments the provider above misses. Live quotes only: historical charts for those
+        still come from Yahoo where it has a match, otherwise the chart is just empty.
+      </p>
 
       <h2>General</h2>
       <div className="form-grid">
