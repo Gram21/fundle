@@ -26,3 +26,6 @@ yarn-error.log*
 # OS
 .DS_Store
 *.local
+
+# openwiki generator workflow, never committed
+.github/workflows/openwiki-update.yml
