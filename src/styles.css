@@ -166,6 +166,34 @@ h3 {
   line-height: 1;
 }
 
+.icon-btn {
+  border: none;
+  background: none;
+  padding: 0.25rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  line-height: 1;
+  font-size: 1.15rem;
+  border-radius: 50%;
+  color: var(--text-muted);
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text);
+}
+
+.refresh-btn.spinning {
+  color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .header-stat {
   display: flex;
   flex-direction: column;

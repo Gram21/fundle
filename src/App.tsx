@@ -90,12 +90,19 @@ export default function App() {
             <span className="header-stat-label">Total</span>
             <span className={`header-stat-value ${signClass(snapshot.totalChangeAbs)}`}>{pct(snapshot.totalChangePct)}</span>
           </div>
+          <button
+            type="button"
+            className={updating ? 'icon-btn refresh-btn spinning' : 'icon-btn refresh-btn'}
+            onClick={() => actions.refresh()}
+            disabled={updating}
+            aria-label={updating ? 'Updating…' : 'Update prices'}
+            title={updating ? 'Updating…' : 'Update prices'}
+          >
+            ↻
+          </button>
           <span className="updated-at">
             {lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString('de-DE')}` : 'Never updated'}
           </span>
-          <button type="button" onClick={() => actions.refresh()} disabled={updating}>
-            {updating ? 'Updating…' : 'Update'}
-          </button>
           <BackupMenu />
           <button
             type="button"
