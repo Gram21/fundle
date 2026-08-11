@@ -76,9 +76,6 @@ export default function SettingsView() {
           onChange={(e) => actions.updateSettings({ baseCurrency: e.target.value })}
         />
       </div>
-
-      <h2>Backup</h2>
-      <p className="hint">Export and import have moved to the Backup menu in the header.</p>
     </div>
   )
 }
