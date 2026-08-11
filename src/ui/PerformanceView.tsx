@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CartesianGrid,
   Legend,
@@ -35,33 +35,72 @@ function filterByRange<T extends { date: string }>(points: T[], range: Range): T
   return cutoff ? points.filter((p) => p.date >= cutoff) : points
 }
 
-export default function PerformanceView() {
-  const { history, settings } = useApp()
-  const portfolio = useActivePortfolio()
+/** One line's worth of data for the per-X performance chart, whatever "X" is (asset or portfolio). */
+interface ChartLine {
+  id: string
+  label: string
+  series: SeriesPoint[]
+}
+
+export default function PerformanceView({ viewAll = false }: { viewAll?: boolean } = {}) {
+  const { history, settings, portfolios } = useApp()
+  const activePortfolio = useActivePortfolio()
   const [range, setRange] = useState<Range>('All')
   const [showSimplePct, setShowSimplePct] = useState(false)
-  const [enabledAssets, setEnabledAssets] = useState<Set<string>>(() => new Set(portfolio.assets.map((a) => a.id)))
+  // "by portfolio" (one line per portfolio) vs "by asset" (one line per asset, across every
+  // portfolio) — only meaningful in viewAll mode.
+  const [perAssetAcrossAll, setPerAssetAcrossAll] = useState(false)
+
+  const allAssets = useMemo(() => portfolios.flatMap((p) => p.assets), [portfolios])
+  const displayAssets = viewAll ? allAssets : activePortfolio.assets
 
   const hasHistory = Object.keys(history).length > 0
 
   const portfolioSeries = useMemo(
-    () => filterByRange(buildPortfolioSeries(portfolio.assets, history), range),
-    [portfolio.assets, history, range],
+    () => filterByRange(buildPortfolioSeries(displayAssets, history), range),
+    [displayAssets, history, range],
   )
 
-  const assetSeriesByAsset = useMemo(() => {
-    const map = new Map<string, SeriesPoint[]>()
-    for (const asset of portfolio.assets) {
-      const series = history[asset.symbol]
-      if (series) map.set(asset.id, buildAssetSeries(asset, series))
+  // Which set of lines the "per-X" section currently shows.
+  const lines: ChartLine[] = useMemo(() => {
+    if (!viewAll) {
+      return activePortfolio.assets.map((a) => {
+        const series = history[a.symbol]
+        return { id: a.id, label: a.name, series: series ? buildAssetSeries(a, series) : [] }
+      })
     }
-    return map
-  }, [portfolio.assets, history])
+    if (!perAssetAcrossAll) {
+      return portfolios.map((p) => ({
+        id: p.id,
+        label: p.name,
+        series: buildPortfolioSeries(p.assets, history),
+      }))
+    }
+    const nameCounts = new Map<string, number>()
+    for (const a of allAssets) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1)
+    return portfolios.flatMap((p) =>
+      p.assets.map((a) => {
+        const series = history[a.symbol]
+        const label = (nameCounts.get(a.name) ?? 0) > 1 ? `${a.name} (${p.name})` : a.name
+        return { id: a.id, label, series: series ? buildAssetSeries(a, series) : [] }
+      }),
+    )
+  }, [viewAll, perAssetAcrossAll, activePortfolio.assets, portfolios, allAssets, history])
 
-  const assetChartData = useMemo(() => {
+  const [enabledIds, setEnabledIds] = useState<Set<string>>(() => new Set(lines.map((l) => l.id)))
+
+  // Reset the selection to "everything on" whenever the set of lines being shown changes shape
+  // (switching portfolio/view-all/by-asset mode) — a stale selection from a different mode would
+  // just look like everything got unchecked.
+  useEffect(() => {
+    setEnabledIds(new Set(lines.map((l) => l.id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewAll, perAssetAcrossAll, activePortfolio.id])
+
+  const chartData = useMemo(() => {
     const dateSet = new Set<string>()
-    for (const series of assetSeriesByAsset.values()) {
-      for (const p of series) dateSet.add(p.date)
+    for (const line of lines) {
+      for (const p of line.series) dateSet.add(p.date)
     }
     const dates = filterByRange(
       [...dateSet].sort().map((date) => ({ date })),
@@ -70,16 +109,16 @@ export default function PerformanceView() {
 
     return dates.map((date) => {
       const row: Record<string, number | string> = { date }
-      for (const [assetId, series] of assetSeriesByAsset) {
-        const point = series.find((p) => p.date === date)
-        if (point) row[assetId] = point.twrPct
+      for (const line of lines) {
+        const point = line.series.find((p) => p.date === date)
+        if (point) row[line.id] = point.twrPct
       }
       return row
     })
-  }, [assetSeriesByAsset, range])
+  }, [lines, range])
 
-  function toggleAsset(id: string) {
-    setEnabledAssets((prev) => {
+  function toggleLine(id: string) {
+    setEnabledIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -87,10 +126,10 @@ export default function PerformanceView() {
     })
   }
 
-  const allEnabled = portfolio.assets.every((a) => enabledAssets.has(a.id))
+  const allEnabled = lines.every((l) => enabledIds.has(l.id))
 
   function toggleAll() {
-    setEnabledAssets(allEnabled ? new Set() : new Set(portfolio.assets.map((a) => a.id)))
+    setEnabledIds(allEnabled ? new Set() : new Set(lines.map((l) => l.id)))
   }
 
   if (!hasHistory) {
@@ -180,44 +219,64 @@ export default function PerformanceView() {
       </section>
 
       <section className="chart-section">
-        <h2>Per-asset performance</h2>
+        <h2>{viewAll ? (perAssetAcrossAll ? 'Per-asset performance (all portfolios)' : 'Per-portfolio performance') : 'Per-asset performance'}</h2>
+        {viewAll && (
+          <div className="range-selector" role="group" aria-label="Per-X view">
+            <button
+              type="button"
+              className={!perAssetAcrossAll ? 'range-btn active' : 'range-btn'}
+              aria-pressed={!perAssetAcrossAll}
+              onClick={() => setPerAssetAcrossAll(false)}
+            >
+              By portfolio
+            </button>
+            <button
+              type="button"
+              className={perAssetAcrossAll ? 'range-btn active' : 'range-btn'}
+              aria-pressed={perAssetAcrossAll}
+              onClick={() => setPerAssetAcrossAll(true)}
+            >
+              By asset
+            </button>
+          </div>
+        )}
         <div className="asset-toggles">
           <button type="button" className="range-btn" onClick={toggleAll}>
             {allEnabled ? 'Deselect all' : 'Select all'}
           </button>
-          {portfolio.assets.map((asset, i) => (
-            <label className="checkbox-label" key={asset.id}>
+          {lines.map((line, i) => (
+            <label className="checkbox-label" key={line.id}>
               <input
                 type="checkbox"
-                checked={enabledAssets.has(asset.id)}
-                onChange={() => toggleAsset(asset.id)}
+                checked={enabledIds.has(line.id)}
+                onChange={() => toggleLine(line.id)}
               />
-              <span style={{ color: PALETTE[i % PALETTE.length] }}>●</span> {asset.name}
+              <span style={{ color: PALETTE[i % PALETTE.length] }}>●</span> {line.label}
             </label>
           ))}
         </div>
         <div className="chart-box">
           <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={assetChartData}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
               <XAxis dataKey="date" tickFormatter={fmtDate} minTickGap={40} />
               <YAxis tickFormatter={(v) => pct(v)} width={80} label={{ value: '% since first buy', angle: -90, position: 'insideLeft' }} />
               <Tooltip
                 labelFormatter={(v) => fmtDate(String(v))}
                 formatter={(value: number, _key: string, item) => {
-                  const asset = portfolio.assets.find((a) => a.id === item.dataKey)
-                  return [pct(value), asset?.name ?? String(item.dataKey)]
+                  const line = lines.find((l) => l.id === item.dataKey)
+                  return [pct(value), line?.label ?? String(item.dataKey)]
                 }}
               />
-              <Legend formatter={(value) => portfolio.assets.find((a) => a.id === value)?.name ?? value} />
-              {portfolio.assets.map(
-                (asset, i) =>
-                  enabledAssets.has(asset.id) && (
+              <Legend formatter={(value) => lines.find((l) => l.id === value)?.label ?? value} />
+              {lines.map(
+                (line, i) =>
+                  enabledIds.has(line.id) && (
                     <Line
-                      key={asset.id}
+                      key={line.id}
                       type="monotone"
-                      dataKey={asset.id}
-                      name={asset.id}
+                      dataKey={line.id}
+                      name={line.id}
                       stroke={PALETTE[i % PALETTE.length]}
                       dot={false}
                       connectNulls

@@ -64,8 +64,8 @@ function buildInitialState(): AppState {
       portfolios: loaded.portfolios,
       activePortfolioId: loaded.portfolios[0]?.id ?? '',
       settings: loaded.settings,
-      quotes: {},
-      history: {},
+      quotes: loaded.quotes,
+      history: loaded.history,
       status: 'idle',
     }
   }
@@ -97,7 +97,13 @@ type Action =
       history: Record<string, PriceSeries>
       failed: string[]
     }
-  | { type: 'IMPORT'; portfolios: Portfolio[]; settings: Settings }
+  | {
+      type: 'IMPORT'
+      portfolios: Portfolio[]
+      settings: Settings
+      quotes: Record<string, Quote>
+      history: Record<string, PriceSeries>
+    }
 
 function updateActivePortfolio(state: AppState, fn: (p: Portfolio) => Portfolio): Portfolio[] {
   return state.portfolios.map((p) => (p.id === state.activePortfolioId ? fn(p) : p))
@@ -185,8 +191,8 @@ function reducer(state: AppState, action: Action): AppState {
         portfolios: action.portfolios,
         activePortfolioId: action.portfolios[0]?.id ?? '',
         settings: action.settings,
-        quotes: {},
-        history: {},
+        quotes: action.quotes,
+        history: action.history,
       }
     default:
       return state
@@ -269,10 +275,10 @@ export function AppProvider(props: { children: ReactNode }) {
     }
   }, [])
 
-  // Persist on every change.
+  // Persist on every change, including fetched prices - so a reload doesn't need to refetch.
   useEffect(() => {
-    saveLocal(state.portfolios, state.settings)
-  }, [state.portfolios, state.settings])
+    saveLocal(state.portfolios, state.settings, { quotes: state.quotes, history: state.history })
+  }, [state.portfolios, state.settings, state.quotes, state.history])
 
   // Refresh on mount.
   useEffect(() => {
@@ -331,11 +337,12 @@ export function AppProvider(props: { children: ReactNode }) {
       },
       refresh,
       exportJson() {
-        return serialize(stateRef.current.portfolios, stateRef.current.settings, new Date())
+        const { portfolios, settings, quotes, history } = stateRef.current
+        return serialize(portfolios, settings, new Date(), { quotes, history })
       },
       importJson(text) {
-        const { portfolios, settings } = parseImport(text)
-        dispatch({ type: 'IMPORT', portfolios, settings })
+        const { portfolios, settings, quotes, history } = parseImport(text)
+        dispatch({ type: 'IMPORT', portfolios, settings, quotes, history })
         refresh()
       },
       search(query) {

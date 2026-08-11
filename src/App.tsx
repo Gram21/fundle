@@ -12,10 +12,13 @@ import PortfolioDialogs, { type PortfolioDialogsHandle } from './ui/PortfolioDia
 
 type Tab = 'overview' | 'performance' | 'settings'
 
+const ALL_PORTFOLIOS = '__all__'
+
 export default function App() {
   const { portfolios, activePortfolioId, quotes, status, error, lastUpdated, actions } = useApp()
   const portfolio = useActivePortfolio()
   const [tab, setTab] = useState<Tab>('overview')
+  const [viewAll, setViewAll] = useState(false)
   const [errorDismissed, setErrorDismissed] = useState(false)
   useEffect(() => setErrorDismissed(false), [error])
   const helpDialogRef = useRef<HTMLDialogElement>(null)
@@ -35,14 +38,22 @@ export default function App() {
           </label>
           <select
             id="portfolio-select"
-            value={activePortfolioId}
-            onChange={(e) => actions.setActivePortfolio(e.target.value)}
+            value={viewAll ? ALL_PORTFOLIOS : activePortfolioId}
+            onChange={(e) => {
+              if (e.target.value === ALL_PORTFOLIOS) {
+                setViewAll(true)
+              } else {
+                setViewAll(false)
+                actions.setActivePortfolio(e.target.value)
+              }
+            }}
           >
             {portfolios.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
+            <option value={ALL_PORTFOLIOS}>All portfolios</option>
           </select>
           <button
             type="button"
@@ -65,6 +76,8 @@ export default function App() {
         </div>
 
         <div className="app-header-right">
+          {/* ponytail: header stats still show only the active portfolio even in "All portfolios"
+              view — summing snapshots across portfolios isn't a one-liner, add if this becomes confusing. */}
           <div className="header-stat">
             <span className="header-stat-label">Value</span>
             <span className="header-stat-value">{money(snapshot.totalValue, portfolio.assets[0]?.currency ?? 'EUR')}</span>
@@ -134,7 +147,7 @@ export default function App() {
 
       <main className="app-content">
         {tab === 'overview' && <Overview />}
-        {tab === 'performance' && <PerformanceView />}
+        {tab === 'performance' && <PerformanceView viewAll={viewAll} />}
         {tab === 'settings' && <SettingsView />}
       </main>
     </div>

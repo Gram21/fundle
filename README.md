@@ -12,7 +12,8 @@ the browser, keeps no server state, and deploys to GitHub Pages as static files.
   the buy price(s).
 - Chart the portfolio's monetary value against its gain/loss in percent, and each asset's
   percentage development.
-- Export everything to JSON and import it back. Nothing is stored on a server.
+- Export everything to JSON and import it back — including fetched prices, so restoring on
+  another device doesn't require refetching history. Nothing is stored on a server.
 
 ### The percentage line
 

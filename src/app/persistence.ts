@@ -1,5 +1,5 @@
 /** Import/export + localStorage persistence. parseImport is a trust boundary: validate, never cast. */
-import type { Asset, Lot, Portfolio } from '../domain/types'
+import type { Asset, Lot, Portfolio, PriceSeries, Quote } from '../domain/types'
 import type { ExportFileV1, Settings } from './schema'
 import { DEFAULT_SETTINGS, LEGACY_SCHEMA_ID, SCHEMA_ID } from './schema'
 
@@ -7,12 +7,24 @@ export const STORAGE_KEY = 'fundle/v1'
 /** Storage key used before the app was renamed from fin-tracker to Fundle; read once for migration. */
 const LEGACY_STORAGE_KEY = 'fin-tracker/v1'
 
-export function serialize(portfolios: Portfolio[], settings: Settings, now: Date): string {
+export interface PriceCache {
+  quotes: Record<string, Quote>
+  history: Record<string, PriceSeries>
+}
+
+export function serialize(
+  portfolios: Portfolio[],
+  settings: Settings,
+  now: Date,
+  cache: PriceCache = { quotes: {}, history: {} },
+): string {
   const file: ExportFileV1 = {
     schema: SCHEMA_ID,
     exportedAt: now.toISOString(),
     portfolios,
     settings,
+    quotes: cache.quotes,
+    history: cache.history,
   }
   return JSON.stringify(file, null, 2)
 }
@@ -106,7 +118,58 @@ function mergeSettings(raw: unknown): Settings {
   }
 }
 
-export function parseImport(text: string): { portfolios: Portfolio[]; settings: Settings } {
+/**
+ * The price cache is disposable — worst case on a bad entry is a refetch, not a broken
+ * portfolio — so unlike lots/assets above, this drops invalid entries instead of throwing.
+ */
+function parseQuote(raw: unknown): Quote | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const r = raw as Record<string, unknown>
+  const price = Number(r.price)
+  const previousClose = Number(r.previousClose)
+  const time = Number(r.time)
+  if (
+    typeof r.symbol !== 'string' ||
+    typeof r.currency !== 'string' ||
+    !Number.isFinite(price) ||
+    !Number.isFinite(previousClose) ||
+    !Number.isFinite(time)
+  ) {
+    return undefined
+  }
+  return { symbol: r.symbol, price, previousClose, currency: r.currency, time }
+}
+
+function parsePriceSeries(raw: unknown): PriceSeries | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const r = raw as Record<string, unknown>
+  if (typeof r.symbol !== 'string' || !Array.isArray(r.points)) return undefined
+  const points = r.points
+    .map((p) => {
+      if (typeof p !== 'object' || p === null) return undefined
+      const point = p as Record<string, unknown>
+      const close = Number(point.close)
+      if (typeof point.date !== 'string' || !Number.isFinite(close)) return undefined
+      return { date: point.date, close }
+    })
+    .filter((p): p is { date: string; close: number } => p !== undefined)
+  return { symbol: r.symbol, points }
+}
+
+function parseCache(raw: unknown, key: 'quotes' | 'history'): Record<string, Quote | PriceSeries> {
+  const entries = raw && typeof raw === 'object' ? Object.entries(raw as Record<string, unknown>) : []
+  const parse = key === 'quotes' ? parseQuote : parsePriceSeries
+  const result: Record<string, Quote | PriceSeries> = {}
+  for (const [symbol, value] of entries) {
+    const parsed = parse(value)
+    if (parsed) result[symbol] = parsed
+  }
+  return result
+}
+
+export function parseImport(
+  text: string,
+): { portfolios: Portfolio[]; settings: Settings } & PriceCache {
   let data: unknown
   try {
     data = JSON.parse(text)
@@ -125,11 +188,13 @@ export function parseImport(text: string): { portfolios: Portfolio[]; settings: 
   }
   const portfolios = obj.portfolios.map((p, i) => parsePortfolio(p, `portfolios[${i}]`))
   const settings = mergeSettings(obj.settings)
-  return { portfolios, settings }
+  const quotes = parseCache(obj.quotes, 'quotes') as Record<string, Quote>
+  const history = parseCache(obj.history, 'history') as Record<string, PriceSeries>
+  return { portfolios, settings, quotes, history }
 }
 
 /** localStorage load/save, reusing the export format so it doubles as the on-disk schema. */
-export function loadLocal(): { portfolios: Portfolio[]; settings: Settings } | null {
+export function loadLocal(): ({ portfolios: Portfolio[]; settings: Settings } & PriceCache) | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
     if (!raw) return null
@@ -139,9 +204,13 @@ export function loadLocal(): { portfolios: Portfolio[]; settings: Settings } | n
   }
 }
 
-export function saveLocal(portfolios: Portfolio[], settings: Settings): void {
+export function saveLocal(
+  portfolios: Portfolio[],
+  settings: Settings,
+  cache?: PriceCache,
+): void {
   try {
-    localStorage.setItem(STORAGE_KEY, serialize(portfolios, settings, new Date()))
+    localStorage.setItem(STORAGE_KEY, serialize(portfolios, settings, new Date(), cache))
   } catch {
     // quota exceeded or storage unavailable - persistence is best-effort
   }

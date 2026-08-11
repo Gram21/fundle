@@ -1,5 +1,5 @@
 /** Persisted document shape. This is the export/import contract. */
-import type { Portfolio } from '../domain/types'
+import type { Portfolio, PriceSeries, Quote } from '../domain/types'
 
 export interface Settings {
   /** PriceProvider.id of the active adapter. */
@@ -20,6 +20,12 @@ export interface ExportFileV1 {
   exportedAt: string
   portfolios: Portfolio[]
   settings: Settings
+  /**
+   * Last fetched prices, keyed by symbol. Optional so older exports (and hand-edited
+   * files) still import fine — a missing cache just means the next refresh fetches it.
+   */
+  quotes?: Record<string, Quote>
+  history?: Record<string, PriceSeries>
 }
 
 export const SCHEMA_ID = 'fundle/v1' as const

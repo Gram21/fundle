@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Portfolio } from '../domain/types'
+import type { Portfolio, PriceSeries, Quote } from '../domain/types'
 import type { Settings } from './schema'
 import { DEFAULT_SETTINGS } from './schema'
 import { parseImport, serialize } from './persistence'
@@ -33,6 +33,29 @@ describe('serialize / parseImport round-trip', () => {
     const now = new Date('2024-06-01T12:34:56Z')
     const text = serialize(samplePortfolios, DEFAULT_SETTINGS, now)
     expect(JSON.parse(text).exportedAt).toBe(now.toISOString())
+  })
+
+  it('preserves the fetched price cache, so a reload does not need to refetch it', () => {
+    const quotes: Record<string, Quote> = {
+      'EUNL.DE': { symbol: 'EUNL.DE', price: 128.71, previousClose: 126.15, currency: 'EUR', time: 1_786_000_000_000 },
+    }
+    const history: Record<string, PriceSeries> = {
+      'EUNL.DE': { symbol: 'EUNL.DE', points: [{ date: '2024-01-01', close: 100 }] },
+    }
+    const text = serialize(samplePortfolios, DEFAULT_SETTINGS, new Date('2024-06-01T00:00:00Z'), {
+      quotes,
+      history,
+    })
+    const parsed = parseImport(text)
+    expect(parsed.quotes).toEqual(quotes)
+    expect(parsed.history).toEqual(history)
+  })
+
+  it('defaults to an empty cache when none is given', () => {
+    const text = serialize(samplePortfolios, DEFAULT_SETTINGS, new Date('2024-06-01T00:00:00Z'))
+    const parsed = parseImport(text)
+    expect(parsed.quotes).toEqual({})
+    expect(parsed.history).toEqual({})
   })
 })
 
@@ -120,6 +143,28 @@ describe('parseImport validation', () => {
     })
     const { settings } = parseImport(text)
     expect(settings).toEqual({ ...DEFAULT_SETTINGS, baseCurrency: 'USD' })
+  })
+
+  it('imports a file with no quotes/history keys (older export) with an empty cache', () => {
+    const { quotes, history } = parseImport(
+      JSON.stringify({ schema: 'fundle/v1', portfolios: [], settings: {} }),
+    )
+    expect(quotes).toEqual({})
+    expect(history).toEqual({})
+  })
+
+  it('drops a malformed cache entry instead of throwing', () => {
+    const { quotes, history } = parseImport(
+      JSON.stringify({
+        schema: 'fundle/v1',
+        portfolios: [],
+        settings: {},
+        quotes: { GOOD: { symbol: 'GOOD', price: 1, previousClose: 1, currency: 'EUR', time: 0 }, BAD: { price: 'nope' } },
+        history: { GOOD: { symbol: 'GOOD', points: [{ date: '2024-01-01', close: 1 }] }, BAD: 'nope' },
+      }),
+    )
+    expect(Object.keys(quotes)).toEqual(['GOOD'])
+    expect(Object.keys(history)).toEqual(['GOOD'])
   })
 
   it('clamps refreshMinutes into [1, 120]', () => {

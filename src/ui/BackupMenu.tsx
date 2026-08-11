@@ -42,7 +42,8 @@ export default function BackupMenu() {
       <div className="backup-menu-panel">
         <p className="hint">
           Data lives only in this browser's local storage — nothing is synced anywhere. Export
-          regularly so you don't lose it.
+          regularly so you don't lose it. The export includes fetched prices, so importing it
+          elsewhere shows the same history right away, without refetching.
         </p>
         <button type="button" onClick={handleExport}>
           Export data (.json)
