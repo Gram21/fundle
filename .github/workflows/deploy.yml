@@ -3,6 +3,13 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'openwiki/**'
+      - '.github/**'
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'AGENT.md'
+      - 'LICENSE'
   workflow_dispatch:
 
 permissions:
