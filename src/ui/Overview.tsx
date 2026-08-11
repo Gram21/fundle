@@ -16,7 +16,28 @@ export default function Overview() {
       {portfolio.assets.length === 0 ? (
         <p className="empty-state">No assets yet — add one below to get started.</p>
       ) : (
-        <div className="table-scroll">
+        <>
+          <div className="portfolio-summary">
+            <div className="header-stat">
+              <span className="header-stat-label">Value</span>
+              <span className="header-stat-value">
+                {money(snapshot.totalValue, portfolio.assets[0]?.currency ?? 'EUR')}
+              </span>
+            </div>
+            <div className="header-stat">
+              <span className="header-stat-label">Day</span>
+              <span className={`header-stat-value ${signClass(snapshot.dayChangeAbs)}`}>
+                {pct(snapshot.dayChangePct)}
+              </span>
+            </div>
+            <div className="header-stat">
+              <span className="header-stat-label">Total</span>
+              <span className={`header-stat-value ${signClass(snapshot.totalChangeAbs)}`}>
+                {pct(snapshot.totalChangePct)}
+              </span>
+            </div>
+          </div>
+          <div className="table-scroll">
           <table className="asset-table">
             <thead>
               <tr>
@@ -85,7 +106,8 @@ export default function Overview() {
               </tr>
             </tfoot>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       <button type="button" className="add-asset-open" onClick={() => addDialogRef.current?.showModal()}>

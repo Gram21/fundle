@@ -1,9 +1,10 @@
 import { forwardRef, useImperativeHandle, useRef, useState, type FormEvent } from 'react'
-import { useApp, useActivePortfolio } from '../app/store'
+import { useApp } from '../app/store'
 
 export interface PortfolioDialogsHandle {
   openAdd(): void
-  openRemove(): void
+  /** Delete confirmation for a specific portfolio, not necessarily the active one. */
+  openRemove(portfolioId: string): void
 }
 
 /**
@@ -12,18 +13,19 @@ export interface PortfolioDialogsHandle {
  * that made "+" and the trash button look broken. These dialogs replace both.
  */
 const PortfolioDialogs = forwardRef<PortfolioDialogsHandle>(function PortfolioDialogs(_props, ref) {
-  const { actions } = useApp()
-  const portfolio = useActivePortfolio()
+  const { portfolios, actions } = useApp()
   const addRef = useRef<HTMLDialogElement>(null)
   const removeRef = useRef<HTMLDialogElement>(null)
   const [name, setName] = useState('')
+  const [removeId, setRemoveId] = useState<string | null>(null)
 
   useImperativeHandle(ref, () => ({
     openAdd() {
       setName('')
       addRef.current?.showModal()
     },
-    openRemove() {
+    openRemove(portfolioId) {
+      setRemoveId(portfolioId)
       removeRef.current?.showModal()
     },
   }))
@@ -37,9 +39,11 @@ const PortfolioDialogs = forwardRef<PortfolioDialogsHandle>(function PortfolioDi
   }
 
   function handleConfirmRemove() {
-    actions.removePortfolio(portfolio.id)
+    if (removeId) actions.removePortfolio(removeId)
     removeRef.current?.close()
   }
+
+  const removeTarget = portfolios.find((p) => p.id === removeId)
 
   return (
     <>
@@ -77,7 +81,7 @@ const PortfolioDialogs = forwardRef<PortfolioDialogsHandle>(function PortfolioDi
         </button>
         <h2>Delete portfolio?</h2>
         <p>
-          Delete "{portfolio.name}" and everything in it. This cannot be undone.
+          Delete "{removeTarget?.name}" and everything in it. This cannot be undone.
         </p>
         <div className="dialog-actions">
           <button type="button" onClick={() => removeRef.current?.close()}>

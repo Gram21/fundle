@@ -1,30 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
-import { useApp, useActivePortfolio } from './app/store'
-import { portfolioSnapshot } from './domain/portfolio'
-import { money, pct, signClass } from './ui/format'
+import { useApp } from './app/store'
 import Overview from './ui/Overview'
 import PerformanceView from './ui/PerformanceView'
 import SettingsView from './ui/SettingsView'
 import HelpDialog from './ui/HelpDialog'
 import Logo from './ui/Logo'
 import BackupMenu from './ui/BackupMenu'
-import PortfolioDialogs, { type PortfolioDialogsHandle } from './ui/PortfolioDialogs'
+import PortfolioMenu from './ui/PortfolioMenu'
 
-type Tab = 'overview' | 'performance' | 'settings'
-
-const ALL_PORTFOLIOS = '__all__'
+type Tab = 'overview' | 'performance'
 
 export default function App() {
-  const { portfolios, activePortfolioId, quotes, status, error, lastUpdated, actions } = useApp()
-  const portfolio = useActivePortfolio()
+  const { status, error, lastUpdated, actions } = useApp()
   const [tab, setTab] = useState<Tab>('overview')
   const [viewAll, setViewAll] = useState(false)
   const [errorDismissed, setErrorDismissed] = useState(false)
   useEffect(() => setErrorDismissed(false), [error])
   const helpDialogRef = useRef<HTMLDialogElement>(null)
-  const portfolioDialogsRef = useRef<PortfolioDialogsHandle>(null)
+  const settingsDialogRef = useRef<HTMLDialogElement>(null)
 
-  const snapshot = portfolioSnapshot(portfolio, quotes)
   const updating = status === 'loading'
 
   return (
@@ -33,63 +27,20 @@ export default function App() {
         <div className="app-header-left">
           <Logo />
           <h1 className="app-name">Fundle</h1>
-          <label className="visually-hidden" htmlFor="portfolio-select">
-            Active portfolio
-          </label>
-          <select
-            id="portfolio-select"
-            value={viewAll ? ALL_PORTFOLIOS : activePortfolioId}
-            onChange={(e) => {
-              if (e.target.value === ALL_PORTFOLIOS) {
-                setViewAll(true)
-              } else {
-                setViewAll(false)
-                actions.setActivePortfolio(e.target.value)
-              }
+          <PortfolioMenu
+            viewAll={viewAll}
+            onSelectPortfolio={(id) => {
+              setViewAll(false)
+              actions.setActivePortfolio(id)
             }}
-          >
-            {portfolios.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-            <option value={ALL_PORTFOLIOS}>All portfolios</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => portfolioDialogsRef.current?.openAdd()}
-            aria-label="Add portfolio"
-            title="Add portfolio"
-          >
-            ＋
-          </button>
-          <button
-            type="button"
-            onClick={() => portfolioDialogsRef.current?.openRemove()}
-            disabled={portfolios.length <= 1}
-            aria-label="Delete active portfolio"
-            title="Delete active portfolio"
-          >
-            🗑
-          </button>
-          <PortfolioDialogs ref={portfolioDialogsRef} />
+            onSelectAll={() => setViewAll(true)}
+          />
         </div>
 
         <div className="app-header-right">
-          {/* ponytail: header stats still show only the active portfolio even in "All portfolios"
-              view — summing snapshots across portfolios isn't a one-liner, add if this becomes confusing. */}
-          <div className="header-stat">
-            <span className="header-stat-label">Value</span>
-            <span className="header-stat-value">{money(snapshot.totalValue, portfolio.assets[0]?.currency ?? 'EUR')}</span>
-          </div>
-          <div className="header-stat">
-            <span className="header-stat-label">Day</span>
-            <span className={`header-stat-value ${signClass(snapshot.dayChangeAbs)}`}>{pct(snapshot.dayChangePct)}</span>
-          </div>
-          <div className="header-stat">
-            <span className="header-stat-label">Total</span>
-            <span className={`header-stat-value ${signClass(snapshot.totalChangeAbs)}`}>{pct(snapshot.totalChangePct)}</span>
-          </div>
+          <span className="updated-at">
+            {lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString('de-DE')}` : 'Never updated'}
+          </span>
           <button
             type="button"
             className={updating ? 'icon-btn refresh-btn spinning' : 'icon-btn refresh-btn'}
@@ -100,10 +51,16 @@ export default function App() {
           >
             ↻
           </button>
-          <span className="updated-at">
-            {lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString('de-DE')}` : 'Never updated'}
-          </span>
           <BackupMenu />
+          <button
+            type="button"
+            className="help-open"
+            onClick={() => settingsDialogRef.current?.showModal()}
+            aria-label="Settings"
+            title="Settings"
+          >
+            ⚙
+          </button>
           <button
             type="button"
             className="help-open"
@@ -115,6 +72,18 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      <dialog ref={settingsDialogRef} className="help-dialog">
+        <button
+          type="button"
+          className="dialog-close"
+          aria-label="Close"
+          onClick={() => settingsDialogRef.current?.close()}
+        >
+          ×
+        </button>
+        <SettingsView />
+      </dialog>
 
       <dialog ref={helpDialogRef} className="help-dialog">
         <button
@@ -138,7 +107,7 @@ export default function App() {
       )}
 
       <div className="tabbar" role="tablist" aria-label="Views">
-        {(['overview', 'performance', 'settings'] as const).map((t) => (
+        {(['overview', 'performance'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -147,7 +116,7 @@ export default function App() {
             className={tab === t ? 'tab active' : 'tab'}
             onClick={() => setTab(t)}
           >
-            {t === 'overview' ? 'Overview' : t === 'performance' ? 'Performance' : 'Settings'}
+            {t === 'overview' ? 'Overview' : 'Performance'}
           </button>
         ))}
       </div>
@@ -155,7 +124,6 @@ export default function App() {
       <main className="app-content">
         {tab === 'overview' && <Overview />}
         {tab === 'performance' && <PerformanceView viewAll={viewAll} />}
-        {tab === 'settings' && <SettingsView />}
       </main>
     </div>
   )

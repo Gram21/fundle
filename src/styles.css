@@ -166,6 +166,100 @@ h3 {
   line-height: 1;
 }
 
+.portfolio-menu {
+  position: relative;
+}
+
+.portfolio-menu summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.portfolio-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.portfolio-menu[open] summary {
+  border-color: var(--accent);
+}
+
+.portfolio-menu-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 20;
+  width: 240px;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.portfolio-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.portfolio-menu-item {
+  flex: 1;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.portfolio-menu-item:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.portfolio-menu-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.portfolio-menu-remove {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.portfolio-menu-remove:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--danger);
+}
+
+.portfolio-menu-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.4rem 0;
+}
+
+.portfolio-summary {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.portfolio-summary .header-stat {
+  align-items: flex-start;
+}
+
 .icon-btn {
   border: none;
   background: none;
