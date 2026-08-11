@@ -1,0 +1,65 @@
+---
+type: app-schema
+title: Settings and Export Schema
+description: The Settings interface, DEFAULT_SETTINGS, the ExportFileV1 document shape, and the fundle/v1 / fin-tracker/v1 schema ids.
+tags: [app, schema, settings, config]
+---
+
+# Settings and Export Schema (`src/app/schema.ts`)
+
+`schema.ts` defines the persisted configuration and the export/import document contract. It is a leaf module — only type imports from `domain/types`.
+
+## `Settings`
+
+```ts
+interface Settings {
+  providerId: string       // PriceProvider.id of the active adapter
+  proxyUrl: string         // CORS proxy prefix; target URL appended URL-encoded
+  apiKeys: Record<string, string>  // per-provider API keys, keyed by PriceProvider.id
+  refreshMinutes: number   // auto-refresh interval (clamped 1-120 on import)
+  baseCurrency: string     // label for chart axes; no FX conversion is performed
+}
+```
+
+- `providerId` selects the adapter in [`createProvider`](../data/price-provider.md#factory-and-registry-srcdataindexts). Current values: `'yahoo'` (default), `'twelvedata'`.
+- `proxyUrl` is only used by the Yahoo adapter; blank means "no proxy". Default `https://corsproxy.io/?url=`.
+- `apiKeys` is an open record so adding a provider needs no type change; Twelve Data reads `apiKeys.twelvedata`.
+- `baseCurrency` labels the PerformanceView value axis and is **not** used to convert amounts — there is no FX conversion, so mixing currencies inside one portfolio mixes units.
+
+## `DEFAULT_SETTINGS`
+
+```ts
+{
+  providerId: 'yahoo',
+  proxyUrl: 'https://corsproxy.io/?url=',
+  apiKeys: {},
+  refreshMinutes: 5,
+  baseCurrency: 'EUR',
+}
+```
+
+The store's `buildInitialState` uses this when there is no persisted state; `mergeSettings` in [persistence](persistence.md) spreads imported settings over it.
+
+## `ExportFileV1`
+
+```ts
+interface ExportFileV1 {
+  schema: 'fundle/v1'
+  exportedAt: string          // ISO timestamp
+  portfolios: Portfolio[]
+  settings: Settings
+  quotes?: Record<string, Quote>     // optional: last fetched prices
+  history?: Record<string, PriceSeries>
+}
+```
+
+`quotes`/`history` are optional so older exports and hand-edited files still import (a missing cache just means the next refresh fetches it). This is the on-disk shape for both the JSON export file and `localStorage`.
+
+## Schema ids
+
+- `SCHEMA_ID = 'fundle/v1'` — current.
+- `LEGACY_SCHEMA_ID = 'fin-tracker/v1'` — accepted on import (see [persistence](persistence.md#storage-keys-and-legacy-migration)) for files created before the rename.
+
+## Focused tests
+
+The schema constants and defaults are exercised by `src/app/persistence.test.ts` (round-trip, legacy schema acceptance, settings merge, `refreshMinutes` clamping). Run with `npm test`.
