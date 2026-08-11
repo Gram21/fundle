@@ -43,19 +43,31 @@ describe('parseImport validation', () => {
 
   it('rejects an unknown schema id', () => {
     expect(() => parseImport(JSON.stringify({ schema: 'other/v9' }))).toThrow(
-      /Unsupported file \(expected schema fin-tracker\/v1\)/,
+      /Unsupported file \(expected schema fundle\/v1\)/,
     )
+  })
+
+  it('still accepts a file exported under the old fin-tracker/v1 schema', () => {
+    const { portfolios } = parseImport(
+      JSON.stringify({
+        schema: 'fin-tracker/v1',
+        exportedAt: new Date().toISOString(),
+        portfolios: samplePortfolios,
+        settings: {},
+      }),
+    )
+    expect(portfolios).toEqual(samplePortfolios)
   })
 
   it('rejects when portfolios is not an array', () => {
     expect(() =>
-      parseImport(JSON.stringify({ schema: 'fin-tracker/v1', portfolios: 'nope', settings: {} })),
+      parseImport(JSON.stringify({ schema: 'fundle/v1', portfolios: 'nope', settings: {} })),
     ).toThrow(/portfolios/)
   })
 
   function fileWithLot(lot: Record<string, unknown>) {
     return JSON.stringify({
-      schema: 'fin-tracker/v1',
+      schema: 'fundle/v1',
       exportedAt: new Date().toISOString(),
       portfolios: [
         {
@@ -101,7 +113,7 @@ describe('parseImport validation', () => {
 
   it('merges partial settings over the defaults', () => {
     const text = JSON.stringify({
-      schema: 'fin-tracker/v1',
+      schema: 'fundle/v1',
       exportedAt: new Date().toISOString(),
       portfolios: [],
       settings: { baseCurrency: 'USD' } as Partial<Settings>,
@@ -112,10 +124,10 @@ describe('parseImport validation', () => {
 
   it('clamps refreshMinutes into [1, 120]', () => {
     const low = parseImport(
-      JSON.stringify({ schema: 'fin-tracker/v1', portfolios: [], settings: { refreshMinutes: 0 } }),
+      JSON.stringify({ schema: 'fundle/v1', portfolios: [], settings: { refreshMinutes: 0 } }),
     )
     const high = parseImport(
-      JSON.stringify({ schema: 'fin-tracker/v1', portfolios: [], settings: { refreshMinutes: 9999 } }),
+      JSON.stringify({ schema: 'fundle/v1', portfolios: [], settings: { refreshMinutes: 9999 } }),
     )
     expect(low.settings.refreshMinutes).toBe(1)
     expect(high.settings.refreshMinutes).toBe(120)

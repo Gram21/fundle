@@ -1,4 +1,4 @@
-# fin-tracker
+# Fundle
 
 Stateless, client-only portfolio tracker for ETFs, stocks and similar assets. Runs entirely in
 the browser, keeps no server state, and deploys to GitHub Pages as static files.

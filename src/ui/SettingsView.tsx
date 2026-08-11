@@ -1,40 +1,10 @@
-import { useRef, useState } from 'react'
 import { useApp } from '../app/store'
 import { PROVIDERS } from '../data'
 
 export default function SettingsView() {
   const { settings, actions } = useApp()
-  const [importError, setImportError] = useState<string | null>(null)
-  const [importSuccess, setImportSuccess] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const provider = PROVIDERS.find((p) => p.id === settings.providerId) ?? PROVIDERS[0]
-
-  function handleExport() {
-    const json = actions.exportJson()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    const today = new Date().toISOString().slice(0, 10)
-    a.href = url
-    a.download = `fin-tracker-${today}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  async function handleImportFile(file: File) {
-    setImportError(null)
-    setImportSuccess(false)
-    try {
-      const text = await file.text()
-      actions.importJson(text)
-      setImportSuccess(true)
-    } catch (err) {
-      setImportError(err instanceof Error ? err.message : String(err))
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
 
   return (
     <div className="settings-view">
@@ -108,30 +78,7 @@ export default function SettingsView() {
       </div>
 
       <h2>Backup</h2>
-      <p className="hint">
-        Data lives only in this browser's localStorage — nothing is synced anywhere. Export regularly so you don't
-        lose it.
-      </p>
-      <button type="button" onClick={handleExport}>
-        Export data (.json)
-      </button>
-
-      <div className="import-row">
-        <label htmlFor="import-file">Import data (.json)</label>
-        <input
-          id="import-file"
-          ref={fileInputRef}
-          type="file"
-          accept="application/json"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) void handleImportFile(file)
-          }}
-        />
-      </div>
-      <p className="hint">Importing replaces all current portfolios and settings.</p>
-      {importError && <p className="form-error">{importError}</p>}
-      {importSuccess && <p className="form-success">Import successful.</p>}
+      <p className="hint">Export and import have moved to the Backup menu in the header.</p>
     </div>
   )
 }

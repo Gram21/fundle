@@ -1,9 +1,11 @@
 /** Import/export + localStorage persistence. parseImport is a trust boundary: validate, never cast. */
 import type { Asset, Lot, Portfolio } from '../domain/types'
 import type { ExportFileV1, Settings } from './schema'
-import { DEFAULT_SETTINGS, SCHEMA_ID } from './schema'
+import { DEFAULT_SETTINGS, LEGACY_SCHEMA_ID, SCHEMA_ID } from './schema'
 
-export const STORAGE_KEY = 'fin-tracker/v1'
+export const STORAGE_KEY = 'fundle/v1'
+/** Storage key used before the app was renamed from fin-tracker to Fundle; read once for migration. */
+const LEGACY_STORAGE_KEY = 'fin-tracker/v1'
 
 export function serialize(portfolios: Portfolio[], settings: Settings, now: Date): string {
   const file: ExportFileV1 = {
@@ -112,11 +114,11 @@ export function parseImport(text: string): { portfolios: Portfolio[]; settings: 
     throw new Error(`Not valid JSON: ${(e as Error).message}`)
   }
   if (typeof data !== 'object' || data === null) {
-    throw new Error('Unsupported file (expected schema fin-tracker/v1)')
+    throw new Error(`Unsupported file (expected schema ${SCHEMA_ID})`)
   }
   const obj = data as Record<string, unknown>
-  if (obj.schema !== SCHEMA_ID) {
-    throw new Error('Unsupported file (expected schema fin-tracker/v1)')
+  if (obj.schema !== SCHEMA_ID && obj.schema !== LEGACY_SCHEMA_ID) {
+    throw new Error(`Unsupported file (expected schema ${SCHEMA_ID})`)
   }
   if (!Array.isArray(obj.portfolios)) {
     throw new Error('Invalid file: portfolios must be an array')
@@ -129,7 +131,7 @@ export function parseImport(text: string): { portfolios: Portfolio[]; settings: 
 /** localStorage load/save, reusing the export format so it doubles as the on-disk schema. */
 export function loadLocal(): { portfolios: Portfolio[]; settings: Settings } | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
     if (!raw) return null
     return parseImport(raw)
   } catch {

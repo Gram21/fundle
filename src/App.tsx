@@ -6,6 +6,9 @@ import Overview from './ui/Overview'
 import PerformanceView from './ui/PerformanceView'
 import SettingsView from './ui/SettingsView'
 import HelpDialog from './ui/HelpDialog'
+import Logo from './ui/Logo'
+import BackupMenu from './ui/BackupMenu'
+import PortfolioDialogs, { type PortfolioDialogsHandle } from './ui/PortfolioDialogs'
 
 type Tab = 'overview' | 'performance' | 'settings'
 
@@ -16,27 +19,17 @@ export default function App() {
   const [errorDismissed, setErrorDismissed] = useState(false)
   useEffect(() => setErrorDismissed(false), [error])
   const helpDialogRef = useRef<HTMLDialogElement>(null)
+  const portfolioDialogsRef = useRef<PortfolioDialogsHandle>(null)
 
   const snapshot = portfolioSnapshot(portfolio, quotes)
   const updating = status === 'loading'
-
-  function handleAddPortfolio() {
-    const name = window.prompt('Portfolio name?')
-    if (name && name.trim()) actions.addPortfolio(name.trim())
-  }
-
-  function handleRemovePortfolio() {
-    if (portfolios.length <= 1) return
-    if (window.confirm(`Delete portfolio "${portfolio.name}"? This cannot be undone.`)) {
-      actions.removePortfolio(portfolio.id)
-    }
-  }
 
   return (
     <div className="app">
       <header className="app-header">
         <div className="app-header-left">
-          <h1 className="app-name">fin-tracker</h1>
+          <Logo />
+          <h1 className="app-name">Fundle</h1>
           <label className="visually-hidden" htmlFor="portfolio-select">
             Active portfolio
           </label>
@@ -51,18 +44,24 @@ export default function App() {
               </option>
             ))}
           </select>
-          <button type="button" onClick={handleAddPortfolio} aria-label="Add portfolio" title="Add portfolio">
+          <button
+            type="button"
+            onClick={() => portfolioDialogsRef.current?.openAdd()}
+            aria-label="Add portfolio"
+            title="Add portfolio"
+          >
             ＋
           </button>
           <button
             type="button"
-            onClick={handleRemovePortfolio}
+            onClick={() => portfolioDialogsRef.current?.openRemove()}
             disabled={portfolios.length <= 1}
             aria-label="Delete active portfolio"
             title="Delete active portfolio"
           >
             🗑
           </button>
+          <PortfolioDialogs ref={portfolioDialogsRef} />
         </div>
 
         <div className="app-header-right">
@@ -84,6 +83,7 @@ export default function App() {
           <button type="button" onClick={() => actions.refresh()} disabled={updating}>
             {updating ? 'Updating…' : 'Update'}
           </button>
+          <BackupMenu />
           <button
             type="button"
             className="help-open"

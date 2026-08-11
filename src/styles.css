@@ -122,6 +122,42 @@ h3 {
   flex-wrap: wrap;
 }
 
+.backup-menu {
+  position: relative;
+}
+
+.backup-menu summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.backup-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.backup-menu[open] summary {
+  border-color: var(--accent);
+}
+
+.backup-menu-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 20;
+  width: 280px;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
 .help-open {
   width: 2rem;
   height: 2rem;
@@ -321,7 +357,8 @@ tfoot td {
 }
 
 .add-asset-dialog,
-.help-dialog {
+.help-dialog,
+.small-dialog {
   position: relative;
   width: min(560px, 90vw);
   max-height: 85vh;
@@ -334,8 +371,41 @@ tfoot td {
 }
 
 .add-asset-dialog::backdrop,
-.help-dialog::backdrop {
+.help-dialog::backdrop,
+.small-dialog::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+.small-dialog {
+  width: min(360px, 90vw);
+}
+
+.small-dialog h2 {
+  margin-top: 0;
+}
+
+.small-dialog label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.small-dialog input {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.dialog-actions .danger {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .help-content h2 {

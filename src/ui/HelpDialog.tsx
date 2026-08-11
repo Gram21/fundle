@@ -1,7 +1,7 @@
 export default function HelpDialog() {
   return (
     <div className="help-content">
-      <h2>About fin-tracker</h2>
+      <h2>About Fundle</h2>
       <p>
         Tracks portfolios of ETFs, stocks and similar assets. Everything runs in your browser —
         there is no server and no account. Data lives only in this browser's local storage.

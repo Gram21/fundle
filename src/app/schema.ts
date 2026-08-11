@@ -16,13 +16,15 @@ export interface Settings {
 }
 
 export interface ExportFileV1 {
-  schema: 'fin-tracker/v1'
+  schema: 'fundle/v1'
   exportedAt: string
   portfolios: Portfolio[]
   settings: Settings
 }
 
-export const SCHEMA_ID = 'fin-tracker/v1' as const
+export const SCHEMA_ID = 'fundle/v1' as const
+/** Schema id used before the app was renamed from fin-tracker to Fundle; still accepted on import. */
+export const LEGACY_SCHEMA_ID = 'fin-tracker/v1' as const
 
 export const DEFAULT_SETTINGS: Settings = {
   providerId: 'yahoo',
