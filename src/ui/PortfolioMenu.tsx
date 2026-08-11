@@ -28,6 +28,19 @@ export default function PortfolioMenu({
       <details ref={detailsRef} className="portfolio-menu">
         <summary>{label}</summary>
         <div className="portfolio-menu-panel">
+          <button
+            type="button"
+            className={viewAll ? 'portfolio-menu-item all-portfolios active' : 'portfolio-menu-item all-portfolios'}
+            onClick={() => {
+              onSelectAll()
+              close()
+            }}
+          >
+            All portfolios
+          </button>
+
+          <hr className="portfolio-menu-divider" />
+
           {portfolios.map((p) => (
             <div className="portfolio-menu-row" key={p.id}>
               <button
@@ -59,17 +72,6 @@ export default function PortfolioMenu({
               </button>
             </div>
           ))}
-
-          <button
-            type="button"
-            className={viewAll ? 'portfolio-menu-item active' : 'portfolio-menu-item'}
-            onClick={() => {
-              onSelectAll()
-              close()
-            }}
-          >
-            All portfolios
-          </button>
 
           <hr className="portfolio-menu-divider" />
 
