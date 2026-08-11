@@ -21,6 +21,20 @@ function cashPaidUntil(asset: Asset, after: ISODate, date: ISODate): number {
     .reduce((sum, l) => sum + l.quantity * l.price + (l.fee ?? 0), 0)
 }
 
+/**
+ * Sale proceeds realized in (after, date] — the negative counterpart to
+ * quantityAddedUntil/cashPaidUntil. On the day a sale lands, this asset's quantity
+ * (and thus its value contribution) has already dropped to 0, so subtracting the
+ * proceeds from `flow` makes that day's twr factor `(0 - (-proceeds)) / prevValue`,
+ * i.e. it books the sale price against the last known mark-to-market value exactly
+ * once. Same weekend/holiday date-range handling as a buy.
+ */
+function saleProceedsUntil(asset: Asset, after: ISODate, date: ISODate): number {
+  const sale = asset.sale
+  if (!sale || !(sale.date > after && sale.date <= date)) return 0
+  return sale.quantity * sale.price - (sale.fee ?? 0)
+}
+
 export function buildPortfolioSeries(
   assets: Asset[],
   seriesBySymbol: Record<string, PriceSeries>,
@@ -60,7 +74,10 @@ export function buildPortfolioSeries(
       const quantity = assetQuantity(asset, date)
       const costBasis = assetCostBasis(asset, date)
       cost += costBasis
-      value += closeFF !== undefined ? quantity * closeFF : costBasis
+      // quantity===0 (nothing held, e.g. after a full sale) must value at 0 even when no
+      // price point exists yet - falling back to costBasis is only a stand-in for "just
+      // bought, price not in yet", and must not resurrect a sold asset's value.
+      value += quantity === 0 ? 0 : closeFF !== undefined ? quantity * closeFF : costBasis
       // The inflow is valued at the SAME close the position is valued at, not at the
       // cash paid. Those two differ routinely — the provider serves dividend-adjusted
       // closes, the fill happened on another exchange, or a fee was charged — and
@@ -70,6 +87,7 @@ export function buildPortfolioSeries(
       const added = quantityAddedUntil(asset, prevDate, date)
       flow +=
         closeFF !== undefined ? added * closeFF : cashPaidUntil(asset, prevDate, date)
+      flow -= saleProceedsUntil(asset, prevDate, date)
     }
 
     const simplePct = cost ? (value / cost - 1) * 100 : 0

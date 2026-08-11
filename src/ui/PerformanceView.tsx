@@ -61,13 +61,22 @@ export default function PerformanceView({ viewAll = false }: { viewAll?: boolean
     [displayAssets, history, range],
   )
 
-  // Which set of lines the "per-X" section currently shows.
+  // Which set of lines the "per-X" section currently shows. Sold assets are excluded here — once
+  // sold, buildAssetSeries's own math (per assetQuantity) flattens to zero at the sale date, which
+  // would just be a distracting flat line.
+  // ponytail: skipping a "(sold)" line truncated at the sale date — the per-portfolio/per-asset
+  // toggle is already juggling two axes of state; a third (held vs sold) needs its own careful pass
+  // through enabledIds/nameCounts/labeling, not a bolt-on here. The sold asset's realized P/L still
+  // correctly moves the "Portfolio" chart above (that's the domain math in performance.ts, unaffected
+  // by this UI-only exclusion). Add it if per-asset-while-held charting for sold positions is asked for.
   const lines: ChartLine[] = useMemo(() => {
     if (!viewAll) {
-      return activePortfolio.assets.map((a) => {
-        const series = history[a.symbol]
-        return { id: a.id, label: a.name, series: series ? buildAssetSeries(a, series) : [] }
-      })
+      return activePortfolio.assets
+        .filter((a) => !a.sale)
+        .map((a) => {
+          const series = history[a.symbol]
+          return { id: a.id, label: a.name, series: series ? buildAssetSeries(a, series) : [] }
+        })
     }
     if (!perAssetAcrossAll) {
       return portfolios.map((p) => ({
@@ -79,11 +88,13 @@ export default function PerformanceView({ viewAll = false }: { viewAll?: boolean
     const nameCounts = new Map<string, number>()
     for (const a of allAssets) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1)
     return portfolios.flatMap((p) =>
-      p.assets.map((a) => {
-        const series = history[a.symbol]
-        const label = (nameCounts.get(a.name) ?? 0) > 1 ? `${a.name} (${p.name})` : a.name
-        return { id: a.id, label, series: series ? buildAssetSeries(a, series) : [] }
-      }),
+      p.assets
+        .filter((a) => !a.sale)
+        .map((a) => {
+          const series = history[a.symbol]
+          const label = (nameCounts.get(a.name) ?? 0) > 1 ? `${a.name} (${p.name})` : a.name
+          return { id: a.id, label, series: series ? buildAssetSeries(a, series) : [] }
+        }),
     )
   }, [viewAll, perAssetAcrossAll, activePortfolio.assets, portfolios, allAssets, history])
 

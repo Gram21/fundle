@@ -40,6 +40,7 @@ export interface AppActions {
   removeAsset(assetId: string): void
   addLot(assetId: string, lot: Omit<Lot, 'id'>): void
   removeLot(assetId: string, lotId: string): void
+  sellAsset(assetId: string, sale: NonNullable<Asset['sale']>): void
   addPortfolio(name: string): void
   removePortfolio(id: string): void
   renamePortfolio(id: string, name: string): void
@@ -85,6 +86,7 @@ type Action =
   | { type: 'REMOVE_ASSET'; assetId: string }
   | { type: 'ADD_LOT'; assetId: string; lot: Lot }
   | { type: 'REMOVE_LOT'; assetId: string; lotId: string }
+  | { type: 'SELL_ASSET'; assetId: string; sale: NonNullable<Asset['sale']> }
   | { type: 'ADD_PORTFOLIO'; portfolio: Portfolio }
   | { type: 'REMOVE_PORTFOLIO'; id: string }
   | { type: 'RENAME_PORTFOLIO'; id: string; name: string }
@@ -130,8 +132,19 @@ function reducer(state: AppState, action: Action): AppState {
         portfolios: updateActivePortfolio(state, (p) => ({
           ...p,
           assets: p.assets.map((a) =>
-            a.id === action.assetId ? { ...a, lots: [...a.lots, action.lot] } : a,
+            a.id === action.assetId
+              // Buying more into a closed position reopens it — a sold asset can't also be held.
+              ? { ...a, lots: [...a.lots, action.lot], sale: undefined }
+              : a,
           ),
+        })),
+      }
+    case 'SELL_ASSET':
+      return {
+        ...state,
+        portfolios: updateActivePortfolio(state, (p) => ({
+          ...p,
+          assets: p.assets.map((a) => (a.id === action.assetId ? { ...a, sale: action.sale } : a)),
         })),
       }
     case 'REMOVE_LOT':
@@ -213,6 +226,34 @@ function earliestLotDateBySymbol(portfolios: Portfolio[]): Map<string, ISODate> 
   return dates
 }
 
+/** Symbols where every asset using them (across every portfolio) has been fully sold. */
+function fullySoldSymbols(portfolios: Portfolio[]): Set<string> {
+  const bySymbol = new Map<string, Asset[]>()
+  for (const portfolio of portfolios) {
+    for (const asset of portfolio.assets) {
+      bySymbol.set(asset.symbol, [...(bySymbol.get(asset.symbol) ?? []), asset])
+    }
+  }
+  const result = new Set<string>()
+  for (const [symbol, assets] of bySymbol) {
+    if (assets.every((a) => a.sale)) result.add(symbol)
+  }
+  return result
+}
+
+/** Latest sale date among assets using a symbol - the "as of" date history only needs to reach for a fully-sold symbol. */
+function latestSaleDateBySymbol(portfolios: Portfolio[]): Map<string, ISODate> {
+  const dates = new Map<string, ISODate>()
+  for (const portfolio of portfolios) {
+    for (const asset of portfolio.assets) {
+      if (!asset.sale) continue
+      const current = dates.get(asset.symbol)
+      if (!current || asset.sale.date > current) dates.set(asset.symbol, asset.sale.date)
+    }
+  }
+  return dates
+}
+
 const AppContext = createContext<(AppState & { actions: AppActions }) | null>(null)
 
 export function AppProvider(props: { children: ReactNode }) {
@@ -235,6 +276,8 @@ export function AppProvider(props: { children: ReactNode }) {
       const { portfolios, settings } = stateRef.current
       const provider = createProvider(settings)
       const earliest = earliestLotDateBySymbol(portfolios)
+      const soldOut = fullySoldSymbols(portfolios)
+      const latestSale = latestSaleDateBySymbol(portfolios)
       const symbols = Array.from(new Set(portfolios.flatMap((p) => p.assets.map((a) => a.symbol))))
 
       const today = new Date().toISOString().slice(0, 10)
@@ -242,14 +285,19 @@ export function AppProvider(props: { children: ReactNode }) {
       const settled = await Promise.allSettled(
         symbols.map(async (symbol) => {
           const from = earliest.get(symbol) ?? today
+          const isSoldOut = soldOut.has(symbol)
+          // A fully-sold symbol never needs a live price again; history only needs to reach
+          // its latest sale date, not today.
+          const asOf = isSoldOut ? latestSale.get(symbol) ?? today : today
           // The daily series only gains a point once a day, so the 5-minute tick refetches
-          // the quote but reuses a series that already reaches today. Public CORS proxies
-          // are rate-limited; this halves the requests they see.
+          // the quote but reuses a series that already reaches today (or the sale date, for a
+          // fully-sold symbol). Public CORS proxies are rate-limited; this halves the requests
+          // they see.
           const known = stateRef.current.history[symbol]
           const fresh =
-            known && known.points.length > 0 && known.points[known.points.length - 1]!.date >= today
+            known && known.points.length > 0 && known.points[known.points.length - 1]!.date >= asOf
           const [quote, history] = await Promise.all([
-            provider.quote(symbol),
+            isSoldOut ? Promise.resolve(undefined) : provider.quote(symbol),
             fresh ? Promise.resolve(known) : provider.history(symbol, from),
           ])
           return { symbol, quote, history }
@@ -263,7 +311,7 @@ export function AppProvider(props: { children: ReactNode }) {
         const symbol = symbols[i]
         if (!symbol) return
         if (result.status === 'fulfilled') {
-          quotes[symbol] = result.value.quote
+          if (result.value.quote) quotes[symbol] = result.value.quote
           history[symbol] = result.value.history
         } else {
           failed.push(symbol)
@@ -318,6 +366,9 @@ export function AppProvider(props: { children: ReactNode }) {
       },
       removeLot(assetId, lotId) {
         dispatch({ type: 'REMOVE_LOT', assetId, lotId })
+      },
+      sellAsset(assetId, sale) {
+        dispatch({ type: 'SELL_ASSET', assetId, sale })
       },
       addPortfolio(name) {
         dispatch({ type: 'ADD_PORTFOLIO', portfolio: emptyPortfolio(name) })

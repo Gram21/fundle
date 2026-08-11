@@ -26,6 +26,19 @@ describe('assetQuantity', () => {
     expect(assetQuantity(asset(), '2024-02-01')).toBe(15)
     expect(assetQuantity(asset(), '2023-12-31')).toBe(0)
   })
+
+  it('drops to 0 from the sale date onward, unaffected before', () => {
+    const a = asset({ sale: { date: '2024-03-01', quantity: 15, price: 150 } })
+    expect(assetQuantity(a, '2024-02-01')).toBe(15)
+    expect(assetQuantity(a, '2024-03-01')).toBe(0)
+    expect(assetQuantity(a, '2024-04-01')).toBe(0)
+    expect(assetQuantity(a)).toBe(0)
+  })
+
+  it('clamps to 0 rather than go negative on an inconsistent sale quantity', () => {
+    const a = asset({ sale: { date: '2024-03-01', quantity: 999, price: 150 } })
+    expect(assetQuantity(a)).toBe(0)
+  })
 })
 
 describe('assetCostBasis', () => {
@@ -114,5 +127,34 @@ describe('portfolioSnapshot', () => {
     expect(snap.dayChangePct).toBe(0)
     expect(snap.totalChangePct).toBe(0)
     expect(snap.assets).toEqual([])
+  })
+
+  it('one held + one sold: totalValue is held-only, totalChangeAbs includes realized P/L, totalCost includes both', () => {
+    const held = asset({
+      id: 'a1',
+      symbol: 'AAA',
+      lots: [{ id: 'l1', date: '2024-01-01', quantity: 10, price: 100 }],
+    })
+    const sold = asset({
+      id: 'a2',
+      symbol: 'BBB',
+      lots: [{ id: 'l2', date: '2024-01-01', quantity: 20, price: 50 }],
+      sale: { date: '2024-06-01', quantity: 20, price: 60, fee: 5 },
+    })
+    const portfolio: Portfolio = { id: 'p1', name: 'P', assets: [held, sold] }
+    const quotes: Record<string, Quote> = {
+      AAA: { symbol: 'AAA', price: 110, previousClose: 100, currency: 'EUR', time: 0 },
+    }
+    const snap = portfolioSnapshot(portfolio, quotes)
+
+    // held: qty10, price110 -> marketValue 1100, cost 1000
+    // sold: proceeds 20*60-5=1195, cost 1000, realized +/- = 195
+    expect(snap.totalValue).toBe(1100)
+    expect(snap.totalCost).toBe(2000)
+    expect(snap.totalChangeAbs).toBe(1100 - 1000 + 195)
+    expect(snap.assets.map((a) => a.asset.id)).toEqual(['a1'])
+    expect(snap.soldAssets.map((s) => s.asset.id)).toEqual(['a2'])
+    expect(snap.soldAssets[0]!.proceeds).toBe(1195)
+    expect(snap.soldAssets[0]!.realizedChangeAbs).toBe(195)
   })
 })

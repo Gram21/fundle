@@ -18,6 +18,15 @@ export interface AssetSnapshot {
   totalChangePct: number
 }
 
+/** Display data for a fully sold asset — its realized P/L, no live price. */
+export interface SoldAssetSnapshot {
+  asset: Asset
+  proceeds: number
+  costBasis: number
+  realizedChangeAbs: number
+  realizedChangePct: number
+}
+
 export interface PortfolioSnapshot {
   totalValue: number
   totalCost: number
@@ -26,6 +35,7 @@ export interface PortfolioSnapshot {
   totalChangeAbs: number
   totalChangePct: number
   assets: AssetSnapshot[]
+  soldAssets: SoldAssetSnapshot[]
 }
 
 /** One point of a performance chart line. */

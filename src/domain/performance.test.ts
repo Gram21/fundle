@@ -258,3 +258,150 @@ describe('buildPortfolioSeries', () => {
     expect(monday.twrPct).toBeCloseTo(0, 8)
   })
 })
+
+describe('a full sale', () => {
+  const d5 = '2024-01-05'
+  const d6 = '2024-01-06'
+
+  it('realizes the sale price against the last known value, then goes flat', () => {
+    // Bought 10@100 on d1; price rises to 150 by d5; sold all 10 @160 on d5 (above market).
+    const asset: Asset = {
+      id: 'a1',
+      symbol: 'AAA',
+      name: 'A',
+      currency: 'EUR',
+      lots: [{ id: 'l1', date: d1, quantity: 10, price: 100 }],
+      sale: { date: d5, quantity: 10, price: 160 },
+    }
+    const series: PriceSeries = {
+      symbol: 'AAA',
+      points: [
+        { date: d1, close: 100 },
+        { date: d2, close: 110 },
+        { date: d3, close: 120 },
+        { date: '2024-01-04', close: 140 },
+        { date: d5, close: 150 },
+        { date: d6, close: 150 },
+      ],
+    }
+    const pts = buildAssetSeries(asset, series)
+    const d4Point = pts[3]! // last point before the sale, value = 10*140 = 1400
+    const d5Point = pts.find((p) => p.date === d5)!
+    const d6Point = pts.find((p) => p.date === d6)!
+
+    expect(d5Point.value).toBe(0)
+    expect(d5Point.cost).toBe(1000)
+    // dailyFactor = (value - flow) / prevValue = (0 - (-1600)) / 1400 = 1600/1400
+    const expectedCumulative = (1 + d4Point.twrPct / 100) * (1600 / 1400)
+    expect(d5Point.twrPct).toBeCloseTo((expectedCumulative - 1) * 100, 6)
+
+    // After the sale: flat value/cost, twr unchanged.
+    expect(d6Point.value).toBe(0)
+    expect(d6Point.cost).toBe(1000)
+    expect(d6Point.twrPct).toBeCloseTo(d5Point.twrPct, 8)
+  })
+
+  it('a sale dated on a non-trading day is realized on the next charted date', () => {
+    // Fri 2024-01-05 and Mon 2024-01-08 trade; the sale is dated Sat 2024-01-06.
+    const asset: Asset = {
+      id: 'a1',
+      symbol: 'AAA',
+      name: 'A',
+      currency: 'EUR',
+      lots: [{ id: 'l1', date: '2024-01-05', quantity: 10, price: 100 }],
+      sale: { date: '2024-01-06', quantity: 10, price: 100 },
+    }
+    const series: PriceSeries = {
+      symbol: 'AAA',
+      points: [
+        { date: '2024-01-05', close: 100 },
+        { date: '2024-01-08', close: 100 },
+      ],
+    }
+    const pts = buildAssetSeries(asset, series)
+    const monday = pts.find((p) => p.date === '2024-01-08')!
+    // Sold at the same price it was bought/marked at, so the return stays flat.
+    expect(monday.value).toBe(0)
+    expect(monday.cost).toBe(1000)
+    expect(monday.twrPct).toBeCloseTo(0, 8)
+  })
+
+  it('combined portfolio: sold asset drops out of value but keeps counting in cost and twr', () => {
+    const held: Asset = {
+      id: 'a1',
+      symbol: 'AAA',
+      name: 'A',
+      currency: 'EUR',
+      lots: [{ id: 'l1', date: d1, quantity: 10, price: 100 }],
+    }
+    const sold: Asset = {
+      id: 'b1',
+      symbol: 'BBB',
+      name: 'B',
+      currency: 'EUR',
+      lots: [{ id: 'l2', date: d1, quantity: 10, price: 50 }],
+      sale: { date: d3, quantity: 10, price: 55 },
+    }
+    const seriesBySymbol: Record<string, PriceSeries> = {
+      AAA: {
+        symbol: 'AAA',
+        points: [
+          { date: d1, close: 100 },
+          { date: d2, close: 100 },
+          { date: d3, close: 100 },
+        ],
+      },
+      BBB: {
+        symbol: 'BBB',
+        points: [
+          { date: d1, close: 50 },
+          { date: d2, close: 50 },
+          { date: d3, close: 50 },
+        ],
+      },
+    }
+    const pts = buildPortfolioSeries([held, sold], seriesBySymbol)
+    const d3Point = pts.find((p) => p.date === d3)!
+    // value: only AAA remains -> 10*100 = 1000
+    expect(d3Point.value).toBe(1000)
+    // cost: both assets' full original cost -> 1000 + 500 = 1500
+    expect(d3Point.cost).toBe(1500)
+    // BBB sold at 55 vs its last mark of 50 is a realized gain on d3.
+    expect(d3Point.twrPct).toBeGreaterThan(0)
+  })
+
+  it('stays at 0 value even with no price data at all for the sold symbol', () => {
+    // A sold asset whose price series never arrived (fetch failure, cache miss, etc.)
+    // must not fall back to "assume costBasis", which is meant for a fresh unsold buy.
+    const other: Asset = {
+      id: 'a1',
+      symbol: 'AAA',
+      name: 'A',
+      currency: 'EUR',
+      lots: [{ id: 'l1', date: d1, quantity: 10, price: 100 }],
+    }
+    const sold: Asset = {
+      id: 'b1',
+      symbol: 'BBB',
+      name: 'B',
+      currency: 'EUR',
+      lots: [{ id: 'l2', date: d1, quantity: 5, price: 50 }],
+      sale: { date: d3, quantity: 5, price: 55 },
+    }
+    const seriesBySymbol: Record<string, PriceSeries> = {
+      AAA: {
+        symbol: 'AAA',
+        points: [
+          { date: d1, close: 100 },
+          { date: d2, close: 100 },
+          { date: d3, close: 100 },
+        ],
+      },
+      // BBB has no entry at all - closeFF is undefined for every date.
+    }
+    const pts = buildPortfolioSeries([other, sold], seriesBySymbol)
+    const d3Point = pts.find((p) => p.date === d3)!
+    expect(d3Point.value).toBe(1000) // only AAA - BBB must not resurrect its 250 cost as value
+    expect(d3Point.cost).toBe(1250) // 1000 (AAA) + 250 (BBB's original cost, still counted)
+  })
+})

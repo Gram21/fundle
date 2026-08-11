@@ -23,6 +23,13 @@ export interface Asset {
   isin?: string
   wkn?: string
   lots: Lot[]
+  /** A completed full sale that closes this position. Once set, the asset is no longer price-tracked. */
+  sale?: {
+    date: ISODate
+    quantity: number
+    price: number
+    fee?: number
+  }
 }
 
 export interface Portfolio {

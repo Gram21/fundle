@@ -67,6 +67,20 @@ function parseLot(raw: unknown, path: string): Lot {
   return lot
 }
 
+function parseSale(raw: unknown, path: string): Asset['sale'] {
+  if (raw === undefined || raw === null) return undefined
+  if (typeof raw !== 'object') {
+    throw new Error(`Invalid ${path}: expected an object`)
+  }
+  const r = raw as Record<string, unknown>
+  return {
+    date: requireString(r.date, `${path}.date`),
+    quantity: requireNumber(r.quantity, `${path}.quantity`),
+    price: requireNumber(r.price, `${path}.price`),
+    fee: r.fee === undefined || r.fee === null ? undefined : requireNumber(r.fee, `${path}.fee`),
+  }
+}
+
 function parseAsset(raw: unknown, path: string): Asset {
   if (typeof raw !== 'object' || raw === null) {
     throw new Error(`Invalid ${path}: expected an object`)
@@ -83,6 +97,7 @@ function parseAsset(raw: unknown, path: string): Asset {
     isin: optionalString(r.isin),
     wkn: optionalString(r.wkn),
     lots: r.lots.map((l, i) => parseLot(l, `${path}.lots[${i}]`)),
+    sale: parseSale(r.sale, `${path}.sale`),
   }
   return asset
 }
