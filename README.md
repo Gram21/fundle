@@ -1,49 +1,34 @@
-# Fundle
+<p align="center">
+  <img src="public/favicon.svg" width="64" height="64" alt="Fundle logo">
+</p>
 
-Stateless, client-only portfolio tracker for ETFs, stocks and similar assets. Runs entirely in
-the browser, keeps no server state, and deploys to GitHub Pages as static files.
+<h1 align="center">Fundle</h1>
+
+<p align="center">
+  A free, private portfolio tracker for stocks and ETFs that runs entirely in your browser.
+</p>
+
+![Fundle performance view, showing a portfolio's value and gain/loss over time](docs/screenshots/performance.png)
 
 ## What it does
 
-- Track one or more portfolios of assets, each with any number of buy orders (date, quantity,
-  price per share, optional fee).
-- Fetch the current price plus daily closes since the first buy from a free market-data API.
-- Show per-asset and total value, the change since the previous close, and the change against
-  the buy price(s).
-- Chart the portfolio's monetary value against its gain/loss in percent, and each asset's
-  percentage development.
-- Export everything to JSON and import it back — including fetched prices, so restoring on
-  another device doesn't require refetching history. Nothing is stored on a server.
+Fundle keeps track of what you own and how it's doing — without a server, an account, or your
+data ever leaving your device.
 
-### The percentage line
+- Add any number of portfolios, each with the stocks or ETFs you hold and the buy orders behind
+  them (date, quantity, price, optional fee).
+- See the current price, today's change, and how each position and the whole portfolio is doing
+  against what you paid.
+- A performance chart shows the portfolio's value over time next to its actual percentage gain or
+  loss — separating real investment performance from money you simply added.
+- Export your data to a file and import it again later, including price history, so switching
+  devices doesn't mean waiting for everything to reload.
 
-Buying more of an asset raises the portfolio's monetary value, but that is new money, not a gain.
-The percentage line is therefore a **time-weighted return**: daily returns are chained after
-subtracting that day's cash flow, so a purchase leaves the percentage untouched and only later
-price moves affect it. The value line still shows the deposit. The dashed *incl. new money* line
-in the Performance view is the naive `value / cost − 1` for contrast.
+Everything runs client-side: no account, no server, no tracking. Your portfolio data stays in
+your browser, and you're always one export away from a backup.
 
-An inflow is valued at the same daily close the position is valued at, not at the price you paid.
-Those two differ routinely — providers serve dividend-adjusted closes, the fill may have happened
-on another exchange, and there are fees — and subtracting cash while adding market value would
-book that gap as a price move, which is the very jump this line must not have. The
-paid-versus-market difference is a cost-basis effect, so it stays visible in the value, the
-cost basis and the change against the buy price.
-
-## Data sources
-
-| Provider | API key | CORS proxy | Notes |
-| --- | --- | --- | --- |
-| Yahoo Finance (default) | no | **required** | One request returns price, previous close and the daily series. ISIN search works; German WKNs usually do not resolve — enter the symbol (e.g. `EUNL.DE`) directly. |
-| Twelve Data | yes (free tier) | no | Sends `Access-Control-Allow-Origin: *`, so it works without a proxy. |
-
-Börse Frankfurt's `api.boerse-frankfurt.de` was evaluated and **cannot** be used from a static
-site: it answers `403` to any request carrying an `Origin` header, and its history endpoints
-require signed `X-Security` headers. A proxy is unavoidable for the Yahoo path; the proxy prefix
-is configurable in Settings (default `https://corsproxy.io/?url=`, which serves browser requests
-on its free tier). Public proxies are rate-limited and go down, so swap in another one — or your
-own — when prices stop arriving; requests time out after 15 s with a hint pointing at the
-setting. Switching to Twelve Data with a free key avoids proxies altogether.
+The app has an in-app help screen (the **?** button in the header) that walks through the same
+ground for anyone who wants more detail while using it.
 
 ## Running locally
 
@@ -82,14 +67,6 @@ src/
 
 Dependencies point inwards only: `ui` → `app` → `data`/`domain`, and `domain` imports nothing.
 Swapping in another market-data API means writing one more `PriceProvider` adapter.
-
-## Scope
-
-Sells and dividends are not modelled — every position is buy-only. Amounts are used as returned
-by the provider, with no FX conversion, so mixing currencies inside one portfolio mixes units.
-
-The app has an in-app help screen (the **?** button in the header) covering the same ground for
-end users.
 
 ## License
 
