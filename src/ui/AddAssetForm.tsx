@@ -123,8 +123,9 @@ export default function AddAssetForm({ onDone }: { onDone?: () => void }) {
 
       {searched && !searching && results.length === 0 && (
         <p className="hint">
-          No matches. German WKNs often do not resolve with free providers — try the ISIN, or type the provider
-          symbol directly into the "Symbol" field below (e.g. 'EUNL.DE').
+          No matches. German WKNs often do not resolve with free providers — try the ISIN, or type
+          the ticker symbol directly into the "Symbol" field below (e.g. 'EUNL.DE' — that's Yahoo
+          Finance's ticker notation, not a website).
         </p>
       )}
 
@@ -143,13 +144,15 @@ export default function AddAssetForm({ onDone }: { onDone?: () => void }) {
       )}
 
       <div className="form-grid">
-        <label htmlFor="asset-symbol">Symbol</label>
+        <label htmlFor="asset-symbol" title="The provider's ticker code, e.g. Yahoo Finance's 'EUNL.DE' — not a website">
+          Ticker symbol
+        </label>
         <input
           id="asset-symbol"
           type="text"
           value={symbol}
           onChange={(e) => setSymbol(e.target.value)}
-          placeholder="EUNL.DE"
+          placeholder="e.g. EUNL.DE (ticker, not a website)"
           required
         />
 
