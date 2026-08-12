@@ -7,8 +7,7 @@ tags: [data, yahoo, adapter, market-data]
 
 # Yahoo Finance Adapter (`src/data/yahoo.ts`)
 
-<!-- openwiki: broken internal link [price-provider.md#cors-proxy-and-timeout] heading anchor "cors-proxy-and-timeout" does not exist in "price-provider.md". Fix the href or restore the target, then delete this comment. -->
-The default provider (`providerId: 'yahoo'`). Yahoo Finance needs no API key but sends no CORS header, so **every call goes through the [proxy](price-provider.md#cors-proxy-and-timeout)**. One chart request conveniently returns price, previous close and the daily series.
+The default provider (`providerId: 'yahoo'`). Yahoo Finance needs no API key but sends no CORS header, so **every call goes through the [proxy](price-provider.md#cors-proxy-and-timeout-srcdataproxyts)**. One chart request conveniently returns price, previous close and the daily series.
 
 The factory:
 
@@ -18,7 +17,7 @@ createYahooProvider(opts: { proxyUrl: string }): PriceProvider
 
 ## `search(query)`
 
-Calls `https://query1.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=10&newsCount=0&enableFuzzyQuery=false`, maps `data.quotes` to `SearchResult` (dropping entries without a `symbol`), preferring `shortname` over `longname` for the display name. German WKNs usually do not resolve via this endpoint — the UI nudges users toward the ISIN or typing the symbol directly (e.g. `EUNL.DE`).
+Calls `https://query1.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=10&newsCount=0&enableFuzzyQuery=false`, maps `data.quotes` to `SearchResult` (dropping entries without a `symbol`), preferring `shortname` over `longname` for the display name. The store's `search` action also calls [Börse Frankfurt](boerse-frankfurt.md) in parallel and merges any BF-only hits; German WKNs usually do not resolve via Yahoo alone — the ISIN or typing the symbol directly (e.g. `EUNL.DE`) is the reliable path.
 
 ## `quote(symbol)`
 
@@ -65,4 +64,4 @@ Uses `vi.stubGlobal('fetch', ...)` to stub responses (no network) and `afterEach
 - **`yahoo history`**: timestamps arriving out of order (`[day3, day1, day2]`) with a `null` adjclose at `day2` (falls back to `quote.close`) produces ascending, deduplicated, `YYYY-MM-DD`-formatted points.
 - **`yahoo search`**: drops entries lacking a `symbol`, maps `shortname`/`longname`.
 
-Run with `npm test`.
+The multi-proxy fallback logic in `proxy.ts` is covered by its own `src/data/proxy.test.ts`. Run with `npm test`.

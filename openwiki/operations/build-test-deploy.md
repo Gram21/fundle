@@ -37,18 +37,20 @@ Runtime: `react@^19.1`, `react-dom@^19.1`, `recharts@^2.15` (charts only). Dev: 
 
 ## Tests
 
-`vitest run` executes three test files (no UI/store integration tests):
+`vitest run` executes six test files (no UI/store integration tests):
 
 - `src/domain/portfolio.test.ts` — snapshot math ([portfolio](../domain/portfolio.md)).
-- `src/domain/performance.test.ts` — TWR invariants ([performance](../domain/performance.md)).
+- `src/domain/performance.test.ts` — TWR invariants including sale handling ([performance](../domain/performance.md)).
 - `src/data/yahoo.test.ts` — proxy + Yahoo adapter ([data](../data/yahoo.md)).
+- `src/data/proxy.test.ts` — multi-proxy fallback in `fetchJson` ([proxy](../data/price-provider.md#cors-proxy-and-timeout-srcdataproxyts)).
+- `src/data/boerseFrankfurt.test.ts` — Börse Frankfurt adapter ([Börse Frankfurt](../data/boerse-frankfurt.md)).
 - `src/app/persistence.test.ts` — import/export trust boundary ([persistence](../app/persistence.md)).
 
 Tests use `vi.stubGlobal('fetch', ...)` to avoid network; `afterEach` unstubbing.
 
 ## Deploy to GitHub Pages (`.github/workflows/deploy.yml`)
 
-Triggers on `push` to `main` and `workflow_dispatch`. The `build` job (ubuntu-latest, Node 22, `npm ci`, `npm test`, `npm run build`) uploads `dist/` as a Pages artifact; the `deploy` job publishes to the `github-pages` environment. `concurrency: { group: pages, cancel-in-progress: true }` cancels superseded runs. Permissions: `contents: read`, `pages: write`, `id-token: write`.
+Triggers on `push` to `main` (with `paths-ignore` for `openwiki/**`, `.github/**`, `README.md`, `CLAUDE.md`, `AGENT.md`, `LICENSE` — doc/CI-only changes skip a deploy) and `workflow_dispatch`. The `build` job (ubuntu-latest, Node 22, `npm ci`, `npm test`, `npm run build`) uploads `dist/` as a Pages artifact; the `deploy` job publishes to the `github-pages` environment. `concurrency: { group: pages, cancel-in-progress: true }` cancels superseded runs. Permissions: `contents: read`, `pages: write`, `id-token: write`.
 
 To enable: **Settings → Pages → Source: GitHub Actions**, then push to `main`. Live at `https://<user>.github.io/<repo>/` shortly after.
 
@@ -56,7 +58,16 @@ To deploy elsewhere: `npm run build` and serve `dist/` — it is plain static fi
 
 ## OpenWiki update (`.github/workflows/openwiki-update.yml`)
 
-A scheduled (`cron: 0 8 * * *`) and manually-dispatchable workflow that runs `openwiki code --update --print` (Node 22, OpenWiki installed globally) and opens a pull request (`peter-evans/create-pull-request`) on branch `openwiki/update` with `add-paths: openwiki, AGENTS.md, CLAUDE.md, .github/workflows/openwiki-update.yml`. Uses `OPENWIKI_PROVIDER: openrouter` with `OPENWIKI_MODEL_ID: z-ai/glm-5.2`. Full `fetch-depth: 0` so the update can diff HEAD against the last-documented commit.
+A weekly scheduled (`cron: 0 9 * * 3`, Wednesdays 09:00 UTC) and manually-dispatchable workflow that runs `openwiki code --update --print` (Node 22, OpenWiki installed globally) and commits changes directly to `main` (`contents: write` permission). Uses `OPENWIKI_PROVIDER: openrouter` with `OPENWIKI_MODEL_ID: z-ai/glm-5.2`. Full `fetch-depth: 0` so the update can diff HEAD against the last-documented commit. If there are no changes, it exits without committing.
+
+## OpenWiki wiki sync (`.github/workflows/openwiki-wiki-sync.yml`)
+
+Keeps the GitHub wiki mirrored 1:1 with the `openwiki/` folder, in both directions:
+
+- **repo → wiki** (on `push` to `main` touching `openwiki/**`): `rsync`s `openwiki/` into the wiki repo, renames `index.md` to `Home.md` (GitHub wikis require a `Home` page), and pushes.
+- **wiki → repo** (on `gollum` — a wiki page edit): `rsync`s the wiki repo back into `openwiki/`, renames `Home.md` to `index.md`, and commits to `main`.
+
+Everything else keeps its path (GitHub wiki repos support subdirectories).
 
 ## Validation
 

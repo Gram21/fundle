@@ -1,7 +1,7 @@
 ---
 type: ui-shell
 title: App Shell — Layout, Tabs, Header and Format Helpers
-description: main.tsx bootstraps the AppProvider; App.tsx renders the header (portfolio selector, stats, Update, Backup, Help), the tab bar, and the active view; format.ts provides Intl-based money/pct/date/signClass helpers.
+description: main.tsx bootstraps the AppProvider; App.tsx renders the header (PortfolioMenu, refresh icon, Backup, Settings, Help), the tab bar, and the active view; format.ts provides Intl-based money/pct/date/signClass helpers.
 tags: [ui, app-shell, layout, format]
 ---
 
@@ -25,26 +25,25 @@ createRoot(document.getElementById('root')!).render(
 
 ## `App.tsx`
 
-Holds the top-level UI state: `tab` (`'overview' | 'performance' | 'settings'`), `viewAll` (the "All portfolios" Performance flag), and `errorDismissed`. It computes `portfolioSnapshot(portfolio, quotes)` for the header stats and renders the active view.
+Holds the top-level UI state: `tab` (`'overview' | 'performance'`), `viewAll` (the "All portfolios" flag passed to `PerformanceView`), and `errorDismissed`. Settings is a modal `<dialog>`, not a tab. It renders the active view.
 
 ### Header
 
-<!-- openwiki: broken internal link [#logo] heading anchor "logo" does not exist in /openwiki/ui/app-shell.md. Fix the href or restore the target, then delete this comment. -->
+<!-- openwiki: broken internal link [forms.md#portfoliomenu] heading anchor "portfoliomenu" does not exist in "forms.md". Fix the href or restore the target, then delete this comment. -->
 <!-- openwiki: broken internal link [forms.md#portfoliodialogs] heading anchor "portfoliodialogs" does not exist in "forms.md". Fix the href or restore the target, then delete this comment. -->
-- **Left**: [Logo](#logo), the app name, a `<select>` for the active portfolio with an "All portfolios" option (sets `viewAll`; selecting a real portfolio calls `actions.setActivePortfolio`), `+` (add portfolio) and `🗑` (delete active portfolio, disabled when only one remains) buttons wired to [PortfolioDialogs](forms.md#portfoliodialogs).
+- **Left**: [Logo](#logotsx), the app name, and the [PortfolioMenu](forms.md#portfoliomenu) dropdown (which embeds [PortfolioDialogs](forms.md#portfoliodialogs) for add/remove).
 <!-- openwiki: broken internal link [forms.md#backupmenu] heading anchor "backupmenu" does not exist in "forms.md". Fix the href or restore the target, then delete this comment. -->
-- **Right**: header stats (Value / Day % / Total %), an "Updated {time}" stamp, the **Update** button (`actions.refresh()`, disabled while `status === 'loading'`), [BackupMenu](forms.md#backupmenu), and the **?** Help button.
+- **Right**: an "Updated {time}" stamp, a **↻** refresh icon button (`actions.refresh()`, disabled and spinning while `status === 'loading'`), [BackupMenu](forms.md#backupmenu), a **⚙** Settings button (opens the settings dialog), and the **?** Help button.
 
-> **Known limitation**: in the "All portfolios" view, the header stats still show only the *active* portfolio, not a cross-portfolio sum (the code comments this as a deliberate non-one-liner). The PerformanceView does aggregate across portfolios; the header does not.
+The portfolio selector, add, and delete affordances have moved into `PortfolioMenu`; the header stats now live in [Overview](overview.md), so `App.tsx` no longer computes a `portfolioSnapshot` itself.
 
-### Error banner and Help dialog
+### Error banner
 
-<!-- openwiki: broken internal link [#helpdialog] heading anchor "helpdialog" does not exist in /openwiki/ui/app-shell.md. Fix the href or restore the target, then delete this comment. -->
-A `role="alert"` banner shows `state.error` (resetting `errorDismissed` whenever `error` changes). The Help `<dialog>` opens via `helpDialogRef.current?.showModal()` and renders [HelpDialog](#helpdialog).
+A `role="alert"` banner shows `state.error` (resetting `errorDismissed` whenever `error` changes). A dismiss button sets `errorDismissed`.
 
 ### Tab bar and main
 
-Three tabs switch `tab`; `main` renders `<Overview />`, `<PerformanceView viewAll={viewAll} />`, or `<SettingsView />`.
+Two tabs switch `tab`; `main` renders `<Overview />` or `<PerformanceView viewAll={viewAll} />`. `PerformanceView` receives `viewAll` so it can aggregate across all portfolios when "All portfolios" is selected in the menu.
 
 ## `format.ts` — formatting helpers
 

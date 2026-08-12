@@ -46,15 +46,20 @@ flowchart TD
 
 Validates `date` (non-empty string), `quantity`/`price` (finite number, numeric-string coerced), `fee` (defaults to `0` when absent/null, else validated). **Drops unknown extra keys** — a `bogus: 'nope'` on a lot does not survive import.
 
+### `parseSale`
+
+Validates an `Asset.sale` object: `date` (non-empty string), `quantity`/`price` (finite number), `fee` (optional — left `undefined` when absent/null, unlike `parseLot` which defaults it to `0`). Returns `undefined` for an absent/null sale.
+
 ### `parseAsset` / `parsePortfolio`
 
-Recursively validate `symbol`, `name`, `currency` (required strings), `isin`/`wkn` (optional), `lots`/`assets` (required arrays).
+Recursively validate `symbol`, `name`, `currency` (required strings), `isin`/`wkn` (optional), `lots`/`assets` (required arrays), and `sale` (optional, via `parseSale`).
 
-### `mergeSettings(raw)`
+### `mergeSettings(raw)` and the proxy-URL auto-migration
 
 Spreads `raw` over `DEFAULT_SETTINGS`, then deep-merges `apiKeys` (so a partial `apiKeys` doesn't wipe other keys) and `clampRefreshMinutes`:
 
 - `clampRefreshMinutes(value)` — `Number(value)` if finite, else `DEFAULT_SETTINGS.refreshMinutes`; clamped to `[1, 120]`. So an import with `refreshMinutes: 0` becomes `1`, and `9999` becomes `120`.
+- `migrateProxyUrl(value)` — free CORS proxies keep dying (corsproxy.io now blocks every non-localhost origin; even working ones go down or get rate-limited). Each time the shipped default changes, anyone who already loaded the app is stuck on their persisted old value forever, since a saved setting always wins over a new code default. `OBSOLETE_PROXY_URLS` is a set of exact `proxyUrl` values this app has shipped as its *own* default in the past (`https://corsproxy.io/?url=`, `https://api.allorigins.win/raw?url=`); a persisted value matching one of them is auto-upgraded to the current `DEFAULT_SETTINGS.proxyUrl`. A value the user actually customized is left alone — only known past defaults are migrated, so this never overwrites a deliberate choice.
 
 ### Price cache: drop, don't throw
 
@@ -75,6 +80,6 @@ Reads `localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_
 Covers the round-trip and the validation boundary:
 
 - **Round-trip**: `serialize` → `parseImport` preserves portfolios and settings; `exportedAt` is an ISO string; the price cache round-trips (so a reload needs no refetch); a missing cache defaults to empty.
-- **Validation**: rejects invalid JSON (`/Not valid JSON/`); rejects unknown schema (`/Unsupported file \(expected schema fundle\/v1\)/`); **accepts legacy `fin-tracker/v1`**; rejects `portfolios` not an array; rejects a lot with non-numeric `quantity`; **coerces numeric-string quantity** (`'10'` → `10`); **defaults missing fee to `0`**; **drops unknown lot keys**; merges partial settings over defaults; imports a file with no `quotes`/`history` keys (older export) as empty cache; **drops a malformed cache entry** (keeps `GOOD`, drops `BAD`); **clamps `refreshMinutes` into `[1, 120]`** (0→1, 9999→120).
+- **Validation**: rejects invalid JSON (`/Not valid JSON/`); rejects unknown schema (`/Unsupported file \(expected schema fundle\/v1\)/`); **accepts legacy `fin-tracker/v1`**; rejects `portfolios` not an array; rejects a lot with non-numeric `quantity`; **coerces numeric-string quantity** (`'10'` → `10`); **defaults missing fee to `0`**; **drops unknown lot keys**; merges partial settings over defaults; **auto-upgrades a `proxyUrl` matching a known-obsolete past default** to the current list, but leaves a user-customized `proxyUrl` alone; imports a file with no `quotes`/`history` keys (older export) as empty cache; **drops a malformed cache entry** (keeps `GOOD`, drops `BAD`); **clamps `refreshMinutes` into `[1, 120]`** (0→1, 9999→120).
 
 Run with `npm test`.

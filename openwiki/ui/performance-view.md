@@ -7,7 +7,7 @@ tags: [ui, performance, charts, recharts]
 
 # Performance Tab (`src/ui/PerformanceView.tsx`)
 
-The performance tab renders two recharts `LineChart`s from [performance](../domain/performance.md) series. It depends on `recharts` (the only non-React runtime dependency). It accepts a `viewAll` prop from the [App shell](app-shell.md) to switch between the active portfolio and an aggregate view.
+The performance tab renders two recharts `LineChart`s from [performance](../domain/performance.md) series. It depends on `recharts` (the only non-React runtime dependency). It accepts a `viewAll` prop from the [App shell](app-shell.md) to switch between the active portfolio and an aggregate view across all portfolios.
 
 ## State
 
@@ -30,9 +30,11 @@ A hint explains the TWR invariant: "adding new money moves the value line but no
 
 Builds `lines: ChartLine[]` (`{ id, label, series }`):
 
-- **Non-viewAll**: one line per asset in the active portfolio (`buildAssetSeries`).
+- **Non-viewAll**: one line per held asset in the active portfolio (`buildAssetSeries`).
 - **viewAll, by portfolio**: one line per portfolio (`buildPortfolioSeries(p.assets, history)`).
-- **viewAll, by asset**: one line per asset across all portfolios; when an asset name appears in multiple portfolios, the label is disambiguated as `{name} ({portfolioName})`.
+- **viewAll, by asset**: one line per held asset across all portfolios; when an asset name appears in multiple portfolios, the label is disambiguated as `{name} ({portfolioName})`.
+
+**Sold assets are excluded** from the per-X lines. Once sold, `buildAssetSeries` flattens to zero at the sale date (by `assetQuantity`), which would just be a distracting flat line. The sold asset's realized P/L still correctly moves the "Portfolio" chart above — that's the [domain math](../domain/performance.md), unaffected by this UI-only exclusion.
 
 `chartData` is a date-union (all points' dates, sorted, range-filtered), each row carrying `{ date, [lineId]: twrPct }`. Lines are toggled by `enabledIds`; `toggleAll` flips between all and none. Single Y axis (`% since first buy`).
 

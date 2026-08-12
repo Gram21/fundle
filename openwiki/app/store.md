@@ -1,8 +1,8 @@
 ---
 type: app-state
 title: App Store — Reducer, Context and Refresh Scheduling
-description: The AppProvider owns all state via useReducer+Context, exposes AppActions, and runs the price refresh flow with series-freshness reuse, allSettled error handling, an interval timer and concurrency guards.
-tags: [app, store, state, react, refresh]
+description: The AppProvider owns all state via useReducer+Context, exposes AppActions (including sellAsset), and runs the price refresh flow with per-symbol provider dispatch, sold-out skip-quote and history-as-of logic, series-freshness reuse, allSettled error handling, an interval timer and concurrency guards.
+tags: [app, store, state, react, refresh, sale]
 ---
 
 # App Store (`src/app/store.tsx`)
@@ -34,7 +34,9 @@ interface AppState {
 | --- | --- |
 | `ADD_ASSET` | append asset to the active portfolio's `assets` |
 | `REMOVE_ASSET` | filter asset out |
-| `ADD_LOT` / `REMOVE_LOT` | append/remove a lot within an asset |
+| `ADD_LOT` | append a lot within an asset; **clears `asset.sale`** (buying more reopens a closed position — a sold asset can't also be held) |
+| `REMOVE_LOT` | remove a lot within an asset |
+| `SELL_ASSET` | set `asset.sale` (records the full-position sale) |
 | `ADD_PORTFOLIO` / `REMOVE_PORTFOLIO` | add/remove portfolio; on removal, if active was removed, fall back to `portfolios[0]?.id ?? ''` |
 | `RENAME_PORTFOLIO` | rename |
 | `SET_ACTIVE_PORTFOLIO` | switch active id |
@@ -43,19 +45,21 @@ interface AppState {
 | `REFRESH_DONE` | merge quotes/history; if `failed.length > 0` set `status='error'` with a message naming the failed symbols, else `status='idle'` and `lastUpdated=Date.now()` |
 | `IMPORT` | replace portfolios/settings/quotes/history wholesale (active becomes `portfolios[0]`) |
 
-`updateActivePortfolio(state, fn)` maps only the active portfolio, leaving others untouched — all asset/lot mutations are scoped to the active portfolio.
+`updateActivePortfolio(state, fn)` maps only the active portfolio, leaving others untouched — all asset/lot/sale mutations are scoped to the active portfolio.
 
 ## `AppActions` (the UI surface)
 
-The `actions` memo exposes: `addAsset`, `removeAsset`, `addLot`, `removeLot`, `addPortfolio`, `removePortfolio`, `renamePortfolio`, `setActivePortfolio`, `updateSettings`, `refresh`, `exportJson`, `importJson`, `search`.
+The `actions` memo exposes: `addAsset`, `removeAsset`, `addLot`, `removeLot`, `sellAsset`, `addPortfolio`, `removePortfolio`, `renamePortfolio`, `setActivePortfolio`, `updateSettings`, `refresh`, `exportJson`, `importJson`, `search`.
 
 Key wiring details:
 
-- **`addAsset` and `addLot` trigger `refresh()`** after dispatching, so a newly added symbol is fetched immediately.
+- **`addAsset` and `addLot` trigger `refresh()`** after dispatching, so a newly added symbol is fetched immediately. `addLot` also clears any existing `sale` on the asset (the reducer handles this), so reopening a position re-fetches quotes.
+- **`sellAsset`** dispatches `SELL_ASSET` but does *not* trigger a refresh — the sale uses the already-fetched quote/price the user picked, and the sold symbol needs no live price again.
 - **`updateSettings` triggers `refresh()` only when the patch touches `providerId`, `proxyUrl`, or `apiKeys`** — changing `refreshMinutes` or `baseCurrency` does not refetch.
 - **`exportJson`** reads from `stateRef.current` (not the render state) via [persistence.serialize](persistence.md).
 - **`importJson`** calls [persistence.parseImport](persistence.md), dispatches `IMPORT`, then `refresh()`.
-- **`search`** constructs a fresh provider from current settings and forwards the query (used by [AddAssetForm](../ui/forms.md)).
+- **`search`** runs the primary provider (`createProvider`) and the [Börse Frankfurt](../data/boerse-frankfurt.md) provider in parallel via `Promise.allSettled`, then merges results **deduplicating by ISIN** — a BF hit whose ISIN the primary already returned is dropped, so the user never sees two rows for one instrument. If both reject, throws the primary's error.
+- **`refresh`** uses [`resolveProvider`](../data/price-provider.md#factory-and-registry-srcdataindexts) per symbol, so `ISIN@MIC` symbols auto-route to BF.
 
 IDs are generated with `crypto.randomUUID()`.
 
@@ -66,10 +70,10 @@ IDs are generated with `crypto.randomUUID()`.
 1. **Concurrency guard**: `refreshingRef.current` is a single boolean ref; if already true, return early. This is deliberately simple — good enough to stop overlapping refreshes from StrictMode double-mount and interval-vs-click races; a per-symbol queue would be overkill.
 2. `dispatch({ type: 'REFRESH_START' })`.
 3. Read `portfolios`/`settings` from `stateRef.current` (the ref is kept in sync via an effect, so `refresh` always sees the latest state, not a stale closure).
-4. `createProvider(settings)` — a fresh provider per refresh, so a settings change takes effect immediately.
-5. `earliestLotDateBySymbol(portfolios)` — scans every lot in every portfolio to find each symbol's earliest lot date, used as the history `from`.
+4. `earliestLotDateBySymbol(portfolios)` — scans every lot in every portfolio to find each symbol's earliest lot date, used as the history `from`.
+5. `fullySoldSymbols(portfolios)` — a symbol is "fully sold" when *every* asset using it (across all portfolios) has `sale` set. `latestSaleDateBySymbol` gives the latest sale date among those assets.
 6. Unique symbols across all portfolios (`new Set(portfolios.flatMap(p => p.assets.map(a => a.symbol)))`).
-7. `Promise.allSettled` over each symbol: fetch `quote(symbol)` in parallel with `history(symbol, from)` — **but reuse the known `history[symbol]` if its last point's date `>= today`** (the daily series only gains a point once a day; this halves the requests a rate-limited proxy sees).
+7. `Promise.allSettled` over each symbol: `resolveProvider(symbol, settings)` picks the right adapter. For a fully-sold symbol the **quote is skipped** (returns `undefined`) and history only needs to reach the **latest sale date**, not today — a sold-out symbol never needs a live price again. For a held symbol, fetch `quote(symbol)` in parallel with `history(symbol, from)` — **but reuse the known `history[symbol]` if its last point's date `>= today`** (or `>= latestSaleDate` for a sold symbol). The daily series only gains a point once a day; this halves the requests a rate-limited proxy sees.
 8. Collect fulfilled results into `quotes`/`history`, rejected symbols into `failed`.
 9. `dispatch({ type: 'REFRESH_DONE', quotes, history, failed })`.
 10. `finally`: clear `refreshingRef`.
@@ -87,4 +91,4 @@ IDs are generated with `crypto.randomUUID()`.
 
 ## Focused tests
 
-The store has no dedicated test file; its behavior is exercised end-to-end by the domain and persistence tests, and its wiring is simple enough that the reducer is effectively a pure function over the `Action` union. The concurrency guard and series-freshness reuse are verified by reading the implementation; the [persistence tests](persistence.md) cover the import path the store delegates to.
+The store has no dedicated test file; its behavior is exercised end-to-end by the domain and persistence tests, and its wiring is simple enough that the reducer is effectively a pure function over the `Action` union. The concurrency guard and series-freshness reuse are verified by reading the implementation; the [persistence tests](persistence.md) cover the import path the store delegates to. The [domain performance tests](../domain/performance.md#focused-tests-srcdomainperformancetestts) cover the sale math the `SELL_ASSET` action feeds.
