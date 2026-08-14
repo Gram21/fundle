@@ -11,7 +11,7 @@ import {
 } from 'react'
 import type { Asset, ISODate, Lot, Portfolio, PriceSeries, Quote } from '../domain/types'
 import type { SearchResult } from '../data/PriceProvider'
-import { createProvider, createBoerseFrankfurtProvider, resolveProvider } from '../data'
+import { createProvider, createBoerseFrankfurtProvider, resolveProvider, MANUAL_REFRESH_ONLY_PROVIDERS } from '../data'
 import { DEFAULT_SETTINGS, type Settings } from './schema'
 import { loadLocal, parseImport, saveLocal, serialize } from './persistence'
 
@@ -97,7 +97,7 @@ type Action =
       type: 'REFRESH_DONE'
       quotes: Record<string, Quote>
       history: Record<string, PriceSeries>
-      failed: string[]
+      failed: { symbol: string; message: string }[]
     }
   | {
       type: 'IMPORT'
@@ -187,7 +187,7 @@ function reducer(state: AppState, action: Action): AppState {
           quotes: { ...state.quotes, ...action.quotes },
           history: { ...state.history, ...action.history },
           status: 'error',
-          error: `Failed to refresh: ${action.failed.join(', ')}`,
+          error: action.failed.map((f) => `${f.symbol}: ${f.message}`).join(' — '),
         }
       }
       return {
@@ -306,7 +306,7 @@ export function AppProvider(props: { children: ReactNode }) {
 
       const quotes: Record<string, Quote> = {}
       const history: Record<string, PriceSeries> = {}
-      const failed: string[] = []
+      const failed: { symbol: string; message: string }[] = []
       settled.forEach((result, i) => {
         const symbol = symbols[i]
         if (!symbol) return
@@ -314,7 +314,8 @@ export function AppProvider(props: { children: ReactNode }) {
           if (result.value.quote) quotes[symbol] = result.value.quote
           history[symbol] = result.value.history
         } else {
-          failed.push(symbol)
+          const message = result.reason instanceof Error ? result.reason.message : String(result.reason)
+          failed.push({ symbol, message })
         }
       })
       dispatch({ type: 'REFRESH_DONE', quotes, history, failed })
@@ -333,10 +334,13 @@ export function AppProvider(props: { children: ReactNode }) {
     refresh()
   }, [refresh])
 
-  // Re-arm the interval whenever refreshMinutes changes.
+  // Re-arm the interval whenever refreshMinutes changes. Skipped entirely for providers too
+  // rate-limited for periodic polling (e.g. Alpha Vantage's 25 requests/day) - those only
+  // refresh on the initial load and the manual Update button.
   useEffect(() => {
     const id = setInterval(() => {
       if (stateRef.current.status === 'loading') return
+      if (MANUAL_REFRESH_ONLY_PROVIDERS.has(stateRef.current.settings.providerId)) return
       refresh()
     }, state.settings.refreshMinutes * 60_000)
     return () => clearInterval(id)

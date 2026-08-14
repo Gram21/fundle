@@ -64,6 +64,14 @@ export default function SettingsView() {
           options don't carry at all. Get a key at eodhd.com.
         </p>
       )}
+      {provider?.id === 'alphavantage' && (
+        <p className="hint">
+          Free, but capped at 25 requests/day total — too little for periodic polling, so
+          auto-refresh is turned off while this is selected. Prices only update on page load and
+          when you press the Update button. Historical charts are limited to the last ~100
+          trading days on the free plan. Get a key at alphavantage.co.
+        </p>
+      )}
       <p className="hint">
         Searching by ISIN also automatically checks Börse Frankfurt's public quote API, no key needed — it
         covers a few instruments the provider above misses. Live quotes only: historical charts for those

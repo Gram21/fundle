@@ -3,6 +3,7 @@ import type { Settings } from '../app/schema'
 import { createYahooProvider } from './yahoo'
 import { createTwelveDataProvider } from './twelvedata'
 import { createEodhdProvider } from './eodhd'
+import { createAlphaVantageProvider } from './alphaVantage'
 import { createBoerseFrankfurtProvider, isBoerseFrankfurtSymbol } from './boerseFrankfurt'
 
 export type { PriceProvider, SearchResult } from './PriceProvider'
@@ -16,6 +17,9 @@ export function createProvider(settings: Pick<Settings, 'providerId' | 'proxyUrl
   }
   if (settings.providerId === 'eodhd') {
     return createEodhdProvider({ apiKey: settings.apiKeys.eodhd ?? '', proxyUrl: settings.proxyUrl })
+  }
+  if (settings.providerId === 'alphavantage') {
+    return createAlphaVantageProvider({ apiKey: settings.apiKeys.alphavantage ?? '' })
   }
   return createYahooProvider({ proxyUrl: settings.proxyUrl })
 }
@@ -35,4 +39,8 @@ export const PROVIDERS: { id: string; label: string; needsApiKey: boolean; needs
   { id: 'yahoo', label: 'Yahoo Finance (via CORS proxy)', needsApiKey: false, needsProxy: true },
   { id: 'twelvedata', label: 'Twelve Data (API key)', needsApiKey: true, needsProxy: false },
   { id: 'eodhd', label: 'EODHD (API key, paid, best ISIN/fund coverage)', needsApiKey: true, needsProxy: true },
+  { id: 'alphavantage', label: 'Alpha Vantage (API key, free: 25 requests/day)', needsApiKey: true, needsProxy: false },
 ]
+
+/** Providers too rate-limited for periodic auto-refresh - only the initial load and the manual Update button should call refresh() while one of these is selected. */
+export const MANUAL_REFRESH_ONLY_PROVIDERS = new Set(['alphavantage'])
