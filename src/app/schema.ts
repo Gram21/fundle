@@ -34,11 +34,15 @@ export const LEGACY_SCHEMA_ID = 'fin-tracker/v1' as const
 
 export const DEFAULT_SETTINGS: Settings = {
   providerId: 'yahoo',
-  // Free CORS proxies are unreliable individually - corsproxy.io now hard-gates every
-  // non-localhost origin, and even the ones that do work go down or get rate-limited
-  // sporadically (all verified during this app's own development). proxyUrl is a
-  // comma-separated fallback list (see data/proxy.ts): each is tried in order per request.
-  proxyUrl: 'https://api.allorigins.win/raw?url=,https://api.cors.lol/?url=,https://api.codetabs.com/v1/proxy?quest=',
+  // proxyUrl is a comma-separated fallback list (see data/proxy.ts): each is tried in order
+  // per request. First is this app's own Cloudflare Worker (see worker/DEPLOY.md) - reliable
+  // and needed for OpenFIGI's POST, which none of the public proxies can relay. The rest are
+  // public fallbacks for if it's ever down; free CORS proxies are unreliable individually
+  // (corsproxy.io now hard-gates every non-localhost origin, and even the ones that do work go
+  // down or get rate-limited sporadically - all verified during this app's own development).
+  // Forking this repo? Deploy your own Worker and swap this URL for yours.
+  proxyUrl:
+    'https://fundle-cors-proxy.gram21.workers.dev/?url=,https://api.allorigins.win/raw?url=,https://api.cors.lol/?url=,https://api.codetabs.com/v1/proxy?quest=',
   apiKeys: {},
   refreshMinutes: 5,
   baseCurrency: 'EUR',

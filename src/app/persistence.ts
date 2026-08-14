@@ -135,6 +135,7 @@ function clampRefreshMinutes(value: unknown): number {
 const OBSOLETE_PROXY_URLS = new Set([
   'https://corsproxy.io/?url=',
   'https://api.allorigins.win/raw?url=',
+  'https://api.allorigins.win/raw?url=,https://api.cors.lol/?url=,https://api.codetabs.com/v1/proxy?quest=',
 ])
 
 function migrateProxyUrl(value: unknown): string | undefined {

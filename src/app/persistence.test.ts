@@ -146,7 +146,11 @@ describe('parseImport validation', () => {
   })
 
   it('upgrades a proxyUrl that matches a known-obsolete past default', () => {
-    for (const stale of ['https://corsproxy.io/?url=', 'https://api.allorigins.win/raw?url=']) {
+    for (const stale of [
+      'https://corsproxy.io/?url=',
+      'https://api.allorigins.win/raw?url=',
+      'https://api.allorigins.win/raw?url=,https://api.cors.lol/?url=,https://api.codetabs.com/v1/proxy?quest=',
+    ]) {
       const { settings } = parseImport(
         JSON.stringify({ schema: 'fundle/v1', portfolios: [], settings: { proxyUrl: stale } }),
       )
