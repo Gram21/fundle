@@ -51,9 +51,17 @@ export default function SettingsView() {
       </div>
       {provider?.needsProxy && (
         <p className="hint">
-          Yahoo Finance sends no CORS header, so requests are routed through this proxy prefix; the target URL is
-          appended URL-encoded. You can list several, comma-separated — each is tried in order until one works,
-          since free proxies routinely go down or get rate-limited on their own.
+          {provider.id === 'eodhd' ? 'EODHD' : 'Yahoo Finance'} sends no CORS header, so requests are routed
+          through this proxy prefix; the target URL is appended URL-encoded. You can list several,
+          comma-separated — each is tried in order until one works, since free proxies routinely go down or
+          get rate-limited on their own.
+        </p>
+      )}
+      {provider?.id === 'eodhd' && (
+        <p className="hint">
+          Paid (from about €20/month), but its search is ISIN-native across US, European and Irish/Luxembourg
+          funds and ETFs — the broadest ISIN coverage of the providers here, including mutual funds the free
+          options don't carry at all. Get a key at eodhd.com.
         </p>
       )}
       <p className="hint">

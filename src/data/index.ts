@@ -2,6 +2,7 @@
 import type { Settings } from '../app/schema'
 import { createYahooProvider } from './yahoo'
 import { createTwelveDataProvider } from './twelvedata'
+import { createEodhdProvider } from './eodhd'
 import { createBoerseFrankfurtProvider, isBoerseFrankfurtSymbol } from './boerseFrankfurt'
 
 export type { PriceProvider, SearchResult } from './PriceProvider'
@@ -12,6 +13,9 @@ export { createBoerseFrankfurtProvider, isBoerseFrankfurtSymbol } from './boerse
 export function createProvider(settings: Pick<Settings, 'providerId' | 'proxyUrl' | 'apiKeys'>) {
   if (settings.providerId === 'twelvedata') {
     return createTwelveDataProvider({ apiKey: settings.apiKeys.twelvedata ?? '' })
+  }
+  if (settings.providerId === 'eodhd') {
+    return createEodhdProvider({ apiKey: settings.apiKeys.eodhd ?? '', proxyUrl: settings.proxyUrl })
   }
   return createYahooProvider({ proxyUrl: settings.proxyUrl })
 }
@@ -30,4 +34,5 @@ export function resolveProvider(symbol: string, settings: Pick<Settings, 'provid
 export const PROVIDERS: { id: string; label: string; needsApiKey: boolean; needsProxy: boolean }[] = [
   { id: 'yahoo', label: 'Yahoo Finance (via CORS proxy)', needsApiKey: false, needsProxy: true },
   { id: 'twelvedata', label: 'Twelve Data (API key)', needsApiKey: true, needsProxy: false },
+  { id: 'eodhd', label: 'EODHD (API key, paid, best ISIN/fund coverage)', needsApiKey: true, needsProxy: true },
 ]
