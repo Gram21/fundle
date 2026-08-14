@@ -59,7 +59,19 @@ export default function PortfolioMenu({
               </button>
               <button
                 type="button"
-                className="portfolio-menu-remove"
+                className="portfolio-menu-icon-btn"
+                aria-label={`Rename ${p.name}`}
+                title={`Rename ${p.name}`}
+                onClick={() => {
+                  close()
+                  dialogsRef.current?.openRename(p.id)
+                }}
+              >
+                ✎
+              </button>
+              <button
+                type="button"
+                className="portfolio-menu-icon-btn portfolio-menu-remove"
                 disabled={portfolios.length <= 1}
                 aria-label={`Delete ${p.name}`}
                 title={`Delete ${p.name}`}

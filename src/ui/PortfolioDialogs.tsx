@@ -5,6 +5,7 @@ export interface PortfolioDialogsHandle {
   openAdd(): void
   /** Delete confirmation for a specific portfolio, not necessarily the active one. */
   openRemove(portfolioId: string): void
+  openRename(portfolioId: string): void
 }
 
 /**
@@ -16,8 +17,11 @@ const PortfolioDialogs = forwardRef<PortfolioDialogsHandle>(function PortfolioDi
   const { portfolios, actions } = useApp()
   const addRef = useRef<HTMLDialogElement>(null)
   const removeRef = useRef<HTMLDialogElement>(null)
+  const renameRef = useRef<HTMLDialogElement>(null)
   const [name, setName] = useState('')
   const [removeId, setRemoveId] = useState<string | null>(null)
+  const [renameId, setRenameId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
 
   useImperativeHandle(ref, () => ({
     openAdd() {
@@ -27,6 +31,11 @@ const PortfolioDialogs = forwardRef<PortfolioDialogsHandle>(function PortfolioDi
     openRemove(portfolioId) {
       setRemoveId(portfolioId)
       removeRef.current?.showModal()
+    },
+    openRename(portfolioId) {
+      setRenameId(portfolioId)
+      setRenameValue(portfolios.find((p) => p.id === portfolioId)?.name ?? '')
+      renameRef.current?.showModal()
     },
   }))
 
@@ -41,6 +50,14 @@ const PortfolioDialogs = forwardRef<PortfolioDialogsHandle>(function PortfolioDi
   function handleConfirmRemove() {
     if (removeId) actions.removePortfolio(removeId)
     removeRef.current?.close()
+  }
+
+  function handleRename(e: FormEvent) {
+    e.preventDefault()
+    const trimmed = renameValue.trim()
+    if (!trimmed || !renameId) return
+    actions.renamePortfolio(renameId, trimmed)
+    renameRef.current?.close()
   }
 
   const removeTarget = portfolios.find((p) => p.id === removeId)
@@ -65,6 +82,34 @@ const PortfolioDialogs = forwardRef<PortfolioDialogsHandle>(function PortfolioDi
           <div className="dialog-actions">
             <button type="submit" disabled={!name.trim()}>
               Create
+            </button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog ref={renameRef} className="small-dialog">
+        <button
+          type="button"
+          className="dialog-close"
+          aria-label="Close"
+          onClick={() => renameRef.current?.close()}
+        >
+          ×
+        </button>
+        <form onSubmit={handleRename}>
+          <h2>Rename portfolio</h2>
+          <label htmlFor="rename-portfolio-name">Name</label>
+          <input
+            id="rename-portfolio-name"
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            autoFocus
+            required
+          />
+          <div className="dialog-actions">
+            <button type="submit" disabled={!renameValue.trim()}>
+              Save
             </button>
           </div>
         </form>

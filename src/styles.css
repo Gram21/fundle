@@ -240,7 +240,7 @@ h3 {
   color: var(--accent);
 }
 
-.portfolio-menu-remove {
+.portfolio-menu-icon-btn {
   border: none;
   background: none;
   color: var(--text-muted);
@@ -249,10 +249,15 @@ h3 {
   padding: 0;
   border-radius: 50%;
   line-height: 1;
+  flex: 0 0 auto;
+}
+
+.portfolio-menu-icon-btn:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text);
 }
 
 .portfolio-menu-remove:hover:not(:disabled) {
-  background: var(--border);
   color: var(--danger);
 }
 
