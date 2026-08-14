@@ -208,16 +208,9 @@ function AssetDetail({ assetId }: { assetId: string }) {
   const [salePrice, setSalePrice] = useState('')
   const [saleFee, setSaleFee] = useState('')
   const [saleError, setSaleError] = useState<string | null>(null)
-  const [newName, setNewName] = useState(asset?.name ?? '')
+  const editDialogRef = useRef<HTMLDialogElement>(null)
 
   if (!asset) return null
-
-  function handleRename(e: FormEvent) {
-    e.preventDefault()
-    const trimmed = newName.trim()
-    if (!trimmed || trimmed === asset!.name) return
-    actions.renameAsset(asset!.id, trimmed)
-  }
 
   function handleRemoveAsset() {
     if (window.confirm(`Remove ${asset!.name} and all its buy orders?`)) {
@@ -263,21 +256,21 @@ function AssetDetail({ assetId }: { assetId: string }) {
 
   return (
     <div className="asset-detail">
-      <form className="rename-asset-form" onSubmit={handleRename}>
-        <div className="lot-field">
-          <label htmlFor={`asset-name-${asset.id}`}>Name</label>
-          <input
-            id={`asset-name-${asset.id}`}
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            required
-          />
-        </div>
-        <button type="submit" disabled={!newName.trim() || newName.trim() === asset.name}>
-          Rename
+      <button type="button" onClick={() => editDialogRef.current?.showModal()}>
+        Edit asset
+      </button>
+
+      <dialog ref={editDialogRef} className="add-asset-dialog">
+        <button
+          type="button"
+          className="dialog-close"
+          aria-label="Close"
+          onClick={() => editDialogRef.current?.close()}
+        >
+          ×
         </button>
-      </form>
+        <AddAssetForm asset={asset} onDone={() => editDialogRef.current?.close()} />
+      </dialog>
 
       <table className="lot-table">
         <thead>

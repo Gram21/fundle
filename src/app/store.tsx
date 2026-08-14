@@ -44,7 +44,7 @@ export interface NewAsset {
 export interface AppActions {
   addAsset(input: NewAsset): void
   removeAsset(assetId: string): void
-  renameAsset(assetId: string, name: string): void
+  updateAsset(assetId: string, patch: Pick<Asset, 'symbol' | 'name' | 'currency' | 'isin' | 'wkn'>): void
   addLot(assetId: string, lot: Omit<Lot, 'id'>): void
   removeLot(assetId: string, lotId: string): void
   sellAsset(assetId: string, sale: NonNullable<Asset['sale']>): void
@@ -91,7 +91,11 @@ function buildInitialState(): AppState {
 type Action =
   | { type: 'ADD_ASSET'; asset: Asset }
   | { type: 'REMOVE_ASSET'; assetId: string }
-  | { type: 'RENAME_ASSET'; assetId: string; name: string }
+  | {
+      type: 'UPDATE_ASSET'
+      assetId: string
+      patch: Pick<Asset, 'symbol' | 'name' | 'currency' | 'isin' | 'wkn'>
+    }
   | { type: 'ADD_LOT'; assetId: string; lot: Lot }
   | { type: 'REMOVE_LOT'; assetId: string; lotId: string }
   | { type: 'SELL_ASSET'; assetId: string; sale: NonNullable<Asset['sale']> }
@@ -134,12 +138,12 @@ function reducer(state: AppState, action: Action): AppState {
           assets: p.assets.filter((a) => a.id !== action.assetId),
         })),
       }
-    case 'RENAME_ASSET':
+    case 'UPDATE_ASSET':
       return {
         ...state,
         portfolios: updateActivePortfolio(state, (p) => ({
           ...p,
-          assets: p.assets.map((a) => (a.id === action.assetId ? { ...a, name: action.name } : a)),
+          assets: p.assets.map((a) => (a.id === action.assetId ? { ...a, ...action.patch } : a)),
         })),
       }
     case 'ADD_LOT':
@@ -380,8 +384,11 @@ export function AppProvider(props: { children: ReactNode }) {
       removeAsset(assetId) {
         dispatch({ type: 'REMOVE_ASSET', assetId })
       },
-      renameAsset(assetId, name) {
-        dispatch({ type: 'RENAME_ASSET', assetId, name })
+      updateAsset(assetId, patch) {
+        dispatch({ type: 'UPDATE_ASSET', assetId, patch })
+        // The symbol may have changed - refetch so the new one gets priced right away
+        // instead of waiting for the next scheduled refresh.
+        refresh()
       },
       addLot(assetId, lot) {
         dispatch({ type: 'ADD_LOT', assetId, lot: { ...lot, id: crypto.randomUUID() } })
