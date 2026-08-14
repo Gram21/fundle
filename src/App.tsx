@@ -125,6 +125,10 @@ export default function App() {
         {tab === 'overview' && <Overview />}
         {tab === 'performance' && <PerformanceView viewAll={viewAll} />}
       </main>
+
+      <footer className="app-footer">
+        Work in progress — some functionality may not work correctly yet.
+      </footer>
     </div>
   )
 }
