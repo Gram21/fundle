@@ -453,6 +453,7 @@ tfoot td {
   margin-bottom: 0.75rem;
 }
 
+.rename-asset-form,
 .add-lot-form,
 .lot-row {
   display: flex;

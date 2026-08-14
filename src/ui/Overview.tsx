@@ -208,8 +208,16 @@ function AssetDetail({ assetId }: { assetId: string }) {
   const [salePrice, setSalePrice] = useState('')
   const [saleFee, setSaleFee] = useState('')
   const [saleError, setSaleError] = useState<string | null>(null)
+  const [newName, setNewName] = useState(asset?.name ?? '')
 
   if (!asset) return null
+
+  function handleRename(e: FormEvent) {
+    e.preventDefault()
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === asset!.name) return
+    actions.renameAsset(asset!.id, trimmed)
+  }
 
   function handleRemoveAsset() {
     if (window.confirm(`Remove ${asset!.name} and all its buy orders?`)) {
@@ -255,6 +263,22 @@ function AssetDetail({ assetId }: { assetId: string }) {
 
   return (
     <div className="asset-detail">
+      <form className="rename-asset-form" onSubmit={handleRename}>
+        <div className="lot-field">
+          <label htmlFor={`asset-name-${asset.id}`}>Name</label>
+          <input
+            id={`asset-name-${asset.id}`}
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" disabled={!newName.trim() || newName.trim() === asset.name}>
+          Rename
+        </button>
+      </form>
+
       <table className="lot-table">
         <thead>
           <tr>
