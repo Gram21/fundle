@@ -9,6 +9,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:api-health": "node scripts/api-health-check.mjs",
+    "test:e2e": "playwright test",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
@@ -17,6 +19,7 @@
     "recharts": "^2.15.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.3.4",

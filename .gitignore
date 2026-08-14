@@ -6,6 +6,10 @@ dist
 dist-ssr
 *.tsbuildinfo
 
+# playwright
+/test-results/
+/playwright-report/
+
 # env
 .env
 .env.*
