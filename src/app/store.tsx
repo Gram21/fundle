@@ -11,7 +11,13 @@ import {
 } from 'react'
 import type { Asset, ISODate, Lot, Portfolio, PriceSeries, Quote } from '../domain/types'
 import type { SearchResult } from '../data/PriceProvider'
-import { createProvider, createBoerseFrankfurtProvider, resolveProvider, MANUAL_REFRESH_ONLY_PROVIDERS } from '../data'
+import {
+  createProvider,
+  createBoerseFrankfurtProvider,
+  createOpenFigiProvider,
+  resolveProvider,
+  MANUAL_REFRESH_ONLY_PROVIDERS,
+} from '../data'
 import { DEFAULT_SETTINGS, type Settings } from './schema'
 import { loadLocal, parseImport, saveLocal, serialize } from './persistence'
 
@@ -402,20 +408,25 @@ export function AppProvider(props: { children: ReactNode }) {
       },
       async search(query) {
         const { settings } = stateRef.current
-        const [primaryResult, bfResult] = await Promise.allSettled([
+        const [primaryResult, bfResult, figiResult] = await Promise.allSettled([
           createProvider(settings).search(query),
           createBoerseFrankfurtProvider({ proxyUrl: settings.proxyUrl }).search(query),
+          createOpenFigiProvider({ apiKey: settings.apiKeys.openfigi, proxyUrl: settings.proxyUrl }).search(query),
         ])
-        if (primaryResult.status === 'rejected' && bfResult.status === 'rejected') {
+        if (primaryResult.status === 'rejected' && bfResult.status === 'rejected' && figiResult.status === 'rejected') {
           throw primaryResult.reason
         }
         const primaryHits = primaryResult.status === 'fulfilled' ? primaryResult.value : []
         const bfHits = bfResult.status === 'fulfilled' ? bfResult.value : []
-        // Skip a BF hit if the primary provider already found the same ISIN — no point
-        // offering the user two rows for one instrument.
-        const primaryIsins = new Set(primaryHits.map((r) => r.isin).filter(Boolean))
-        const extra = bfHits.filter((r) => !primaryIsins.has(r.isin))
-        return [...primaryHits, ...extra]
+        const figiHits = figiResult.status === 'fulfilled' ? figiResult.value : []
+        // Skip a hit if an earlier source already found the same ISIN or exact symbol — no
+        // point offering the user two rows for one instrument.
+        const seenIsins = new Set(primaryHits.map((r) => r.isin).filter(Boolean))
+        const seenSymbols = new Set(primaryHits.map((r) => r.symbol))
+        const extraBf = bfHits.filter((r) => !seenIsins.has(r.isin))
+        extraBf.forEach((r) => seenSymbols.add(r.symbol))
+        const extraFigi = figiHits.filter((r) => !seenIsins.has(r.isin) && !seenSymbols.has(r.symbol))
+        return [...primaryHits, ...extraBf, ...extraFigi]
       },
     }),
     [refresh],

@@ -17,10 +17,10 @@ export function proxyCandidates(proxyUrl: string): string[] {
 /** A public CORS proxy that has gone down tends to hang rather than refuse. */
 const TIMEOUT_MS = 8_000
 
-async function fetchOnce<T>(url: string, prefix: string): Promise<T> {
+async function fetchOnce<T>(url: string, prefix: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
-    res = await fetch(proxied(url, prefix), { signal: AbortSignal.timeout(TIMEOUT_MS) })
+    res = await fetch(proxied(url, prefix), { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) })
   } catch (err) {
     const timedOut = err instanceof DOMException && err.name === 'TimeoutError'
     throw new PriceProviderError(
@@ -45,14 +45,14 @@ async function fetchOnce<T>(url: string, prefix: string): Promise<T> {
  * comma-separated list of fallback prefixes, tried in order. An empty `proxyUrl` fetches
  * directly (used for providers with native CORS support, and in tests).
  */
-export async function fetchJson<T>(url: string, proxyUrl: string): Promise<T> {
+export async function fetchJson<T>(url: string, proxyUrl: string, init?: RequestInit): Promise<T> {
   const candidates = proxyCandidates(proxyUrl)
-  if (candidates.length === 0) return fetchOnce<T>(url, '')
+  if (candidates.length === 0) return fetchOnce<T>(url, '', init)
 
   const failures: string[] = []
   for (const prefix of candidates) {
     try {
-      return await fetchOnce<T>(url, prefix)
+      return await fetchOnce<T>(url, prefix, init)
     } catch (err) {
       const host = (() => {
         try {

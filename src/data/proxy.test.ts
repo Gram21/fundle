@@ -61,4 +61,19 @@ describe('fetchJson fallback', () => {
     await fetchJson('https://example.com/x', 'https://proxy-a/?url=,https://proxy-b/?url=')
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it('forwards an optional RequestInit (method/body/headers) to every candidate, needed for POST APIs like OpenFIGI', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('{}') })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchJson('https://example.com/x', '', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '[1,2,3]',
+    })
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(init.method).toBe('POST')
+    expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
+    expect(init.body).toBe('[1,2,3]')
+  })
 })

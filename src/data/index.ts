@@ -9,6 +9,7 @@ import { createBoerseFrankfurtProvider, isBoerseFrankfurtSymbol } from './boerse
 export type { PriceProvider, SearchResult } from './PriceProvider'
 export { PriceProviderError } from './PriceProvider'
 export { createBoerseFrankfurtProvider, isBoerseFrankfurtSymbol } from './boerseFrankfurt'
+export { createOpenFigiProvider } from './openfigi'
 
 /** The user-selected primary provider. */
 export function createProvider(settings: Pick<Settings, 'providerId' | 'proxyUrl' | 'apiKeys'>) {

@@ -78,6 +78,29 @@ export default function SettingsView() {
         still come from Yahoo where it has a match, otherwise the chart is just empty.
       </p>
 
+      <h2>ISIN lookup (OpenFIGI)</h2>
+      <p className="hint">
+        ISIN searches also automatically try OpenFIGI, the most complete free ISIN resolver
+        available, no key required — it's the difference between an ISIN failing to resolve at
+        all and it turning up a match. It only maps ISIN → ticker, not prices, so a hit is
+        priced through Yahoo afterwards. Its lookup is a POST request, which the public CORS
+        proxies above can't relay — it works reliably only with your own proxy (see{' '}
+        <code>worker/DEPLOY.md</code> in the project for a free, 10-minute Cloudflare Worker
+        setup). An optional API key below just raises OpenFIGI's rate limit; get a free one at
+        openfigi.com if you hit it.
+      </p>
+      <div className="form-grid">
+        <label htmlFor="openfigi-api-key">OpenFIGI API key (optional)</label>
+        <input
+          id="openfigi-api-key"
+          type="password"
+          value={settings.apiKeys.openfigi ?? ''}
+          onChange={(e) =>
+            actions.updateSettings({ apiKeys: { ...settings.apiKeys, openfigi: e.target.value } })
+          }
+        />
+      </div>
+
       <h2>General</h2>
       <div className="form-grid">
         <label htmlFor="refresh-minutes">Refresh interval (minutes)</label>
