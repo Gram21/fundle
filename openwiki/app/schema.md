@@ -21,9 +21,9 @@ interface Settings {
 }
 ```
 
-- `providerId` selects the adapter in [`createProvider`](../data/price-provider.md#factory-and-registry-srcdataindexts). Current values: `'yahoo'` (default), `'twelvedata'`. The [Börse Frankfurt](../data/boerse-frankfurt.md) adapter is a supplementary source, not user-selectable, so it has no `providerId` and no `PROVIDERS` entry.
-- `proxyUrl` is only used by the CORS-proxy adapters (Yahoo, Börse Frankfurt); blank means "no proxy". It is a **comma-separated list of fallback prefixes** tried in order (see [proxy helper](../data/price-provider.md#cors-proxy-and-timeout-srcdataproxyts)). Default is a 3-entry list.
-- `apiKeys` is an open record so adding a provider needs no type change; Twelve Data reads `apiKeys.twelvedata`.
+- `providerId` selects the adapter in [`createProvider`](../data/price-provider.md#factory-and-registry-srcdataindexts). Current values: `'yahoo'` (default), `'twelvedata'`, `'eodhd'` (paid), `'alphavantage'` (free, rate-capped). The [Börse Frankfurt](../data/boerse-frankfurt.md) and [OpenFIGI](../data/openfigi.md) adapters are supplementary sources, not user-selectable, so they have no `providerId` and no `PROVIDERS` entry.
+- `proxyUrl` is only used by the CORS-proxy adapters (Yahoo, Börse Frankfurt, EODHD); blank means "no proxy". It is a **comma-separated list of fallback prefixes** tried in order (see [proxy helper](../data/price-provider.md#cors-proxy-and-timeout-srcdataproxyts)). Default is a 4-entry list led by Fundle's own [Cloudflare Worker](../operations/cors-proxy.md).
+- `apiKeys` is an open record so adding a provider needs no type change; Twelve Data reads `apiKeys.twelvedata`, EODHD `apiKeys.eodhd`, Alpha Vantage `apiKeys.alphavantage`, OpenFIGI `apiKeys.openfigi` (optional).
 - `baseCurrency` labels the PerformanceView value axis and is **not** used to convert amounts — there is no FX conversion, so mixing currencies inside one portfolio mixes units.
 
 ## `DEFAULT_SETTINGS`
@@ -31,14 +31,14 @@ interface Settings {
 ```ts
 {
   providerId: 'yahoo',
-  proxyUrl: 'https://api.allorigins.win/raw?url=,https://api.cors.lol/?url=,https://api.codetabs.com/v1/proxy?quest=',
+  proxyUrl: 'https://fundle-cors-proxy.gram21.workers.dev/?url=,https://api.allorigins.win/raw?url=,https://api.cors.lol/?url=,https://api.codetabs.com/v1/proxy?quest=',
   apiKeys: {},
   refreshMinutes: 5,
   baseCurrency: 'EUR',
 }
 ```
 
-The `proxyUrl` default is a fallback list because free CORS proxies are unreliable individually — each is tried in order per request, stopping at the first that works. [persistence](persistence.md) auto-upgrades a persisted value that matches a known-obsolete past default (see `migrateProxyUrl` / `OBSOLETE_PROXY_URLS`).
+The `proxyUrl` default is a 4-entry fallback list led by Fundle's own [Cloudflare Worker](../operations/cors-proxy.md) (reliable and the only way to relay OpenFIGI's `POST`), then three public proxies as fallback. Free CORS proxies are unreliable individually — each is tried in order per request, stopping at the first that works. [persistence](persistence.md) auto-upgrades a persisted value that matches a known-obsolete past default (see `migrateProxyUrl` / `OBSOLETE_PROXY_URLS`, which now includes the previous 3-entry public-only default).
 
 The store's `buildInitialState` uses this when there is no persisted state; `mergeSettings` in [persistence](persistence.md) spreads imported settings over it.
 

@@ -37,8 +37,9 @@ interface AppState {
 | `ADD_LOT` | append a lot within an asset; **clears `asset.sale`** (buying more reopens a closed position — a sold asset can't also be held) |
 | `REMOVE_LOT` | remove a lot within an asset |
 | `SELL_ASSET` | set `asset.sale` (records the full-position sale) |
+| `UPDATE_ASSET` | shallow-merge a `Pick<Asset,'symbol'|'name'|'currency'|'isin'|'wkn'>` patch onto the asset (full entry edit, not just rename) |
 | `ADD_PORTFOLIO` / `REMOVE_PORTFOLIO` | add/remove portfolio; on removal, if active was removed, fall back to `portfolios[0]?.id ?? ''` |
-| `RENAME_PORTFOLIO` | rename |
+| `RENAME_PORTFOLIO` | rename a portfolio (any id, not just the active one) |
 | `SET_ACTIVE_PORTFOLIO` | switch active id |
 | `UPDATE_SETTINGS` | shallow-merge settings patch |
 | `REFRESH_START` | `status='loading'` |
@@ -49,16 +50,17 @@ interface AppState {
 
 ## `AppActions` (the UI surface)
 
-The `actions` memo exposes: `addAsset`, `removeAsset`, `addLot`, `removeLot`, `sellAsset`, `addPortfolio`, `removePortfolio`, `renamePortfolio`, `setActivePortfolio`, `updateSettings`, `refresh`, `exportJson`, `importJson`, `search`.
+The `actions` memo exposes: `addAsset`, `removeAsset`, `updateAsset`, `addLot`, `removeLot`, `sellAsset`, `addPortfolio`, `removePortfolio`, `renamePortfolio`, `setActivePortfolio`, `updateSettings`, `refresh`, `exportJson`, `importJson`, `search`.
 
 Key wiring details:
 
 - **`addAsset` and `addLot` trigger `refresh()`** after dispatching, so a newly added symbol is fetched immediately. `addLot` also clears any existing `sale` on the asset (the reducer handles this), so reopening a position re-fetches quotes.
+- **`updateAsset`** dispatches `UPDATE_ASSET` (full entry edit — symbol, name, currency, isin, wkn — not just a rename) and then **triggers `refresh()`**, because the symbol may have changed and the new one should be priced right away instead of waiting for the next scheduled refresh.
 - **`sellAsset`** dispatches `SELL_ASSET` but does *not* trigger a refresh — the sale uses the already-fetched quote/price the user picked, and the sold symbol needs no live price again.
 - **`updateSettings` triggers `refresh()` only when the patch touches `providerId`, `proxyUrl`, or `apiKeys`** — changing `refreshMinutes` or `baseCurrency` does not refetch.
 - **`exportJson`** reads from `stateRef.current` (not the render state) via [persistence.serialize](persistence.md).
 - **`importJson`** calls [persistence.parseImport](persistence.md), dispatches `IMPORT`, then `refresh()`.
-- **`search`** runs the primary provider (`createProvider`) and the [Börse Frankfurt](../data/boerse-frankfurt.md) provider in parallel via `Promise.allSettled`, then merges results **deduplicating by ISIN** — a BF hit whose ISIN the primary already returned is dropped, so the user never sees two rows for one instrument. If both reject, throws the primary's error.
+- **`search`** runs the primary provider (`createProvider`), the [Börse Frankfurt](../data/boerse-frankfurt.md) provider, and the [OpenFIGI](../data/openfigi.md) provider in parallel via `Promise.allSettled`, then merges results **deduplicating by ISIN and symbol** — a BF or OpenFIGI hit whose ISIN or symbol the primary already returned is dropped, so the user never sees duplicate rows. OpenFIGI is passed `settings.apiKeys.openfigi` (optional) and the proxy URL (needed for its POST). If all three reject, throws the primary's error.
 - **`refresh`** uses [`resolveProvider`](../data/price-provider.md#factory-and-registry-srcdataindexts) per symbol, so `ISIN@MIC` symbols auto-route to BF.
 
 IDs are generated with `crypto.randomUUID()`.
@@ -82,7 +84,7 @@ IDs are generated with `crypto.randomUUID()`.
 
 - **Persist on every change**: an effect watches `[state.portfolios, state.settings, state.quotes, state.history]` and calls `saveLocal(...)`. A reload does not need to refetch.
 - **Refresh on mount**: `useEffect(() => { refresh() }, [refresh])`.
-- **Interval**: re-armed whenever `settings.refreshMinutes` changes. Skips a tick if `status === 'loading'`. Interval = `refreshMinutes * 60_000` ms.
+- **Interval**: re-armed whenever `settings.refreshMinutes` changes. Skips a tick if `status === 'loading'`. **Skips the tick entirely when the selected provider is in [`MANUAL_REFRESH_ONLY_PROVIDERS`](../data/price-provider.md#manual_refresh_only_providers)** (e.g. Alpha Vantage's 25 requests/day) — those providers only refresh on the initial load and the manual **↻** button. Interval = `refreshMinutes * 60_000` ms.
 
 ## Hooks
 

@@ -7,14 +7,14 @@ tags: [architecture, overview]
 
 # Architecture Overview
 
-Fundle is a **stateless, client-only portfolio tracker** for ETFs, stocks and similar assets. It runs entirely in the browser, keeps no server state, and deploys to GitHub Pages as static files. All persistence is `localStorage`; all market data comes from free public APIs — Yahoo Finance via a CORS proxy, Twelve Data with an API key, and Börse Frankfurt as an automatic supplementary ISIN-native quote source.
+Fundle is a **stateless, client-only portfolio tracker** for ETFs, stocks and similar assets. It runs entirely in the browser, keeps no server state, and deploys to GitHub Pages as static files. All persistence is `localStorage`; all market data comes from free or low-cost public APIs — Yahoo Finance via a CORS proxy, Twelve Data / EODHD / Alpha Vantage with API keys, with Börse Frankfurt and OpenFIGI as automatic supplementary ISIN-native sources. The self-hosted [Cloudflare Worker CORS proxy](../operations/cors-proxy.md) is the primary relay for non-CORS APIs and the only way to reach OpenFIGI's POST endpoint.
 
 ## Layers and dependency rule
 
 ```
 src/
   domain/   pure model and math, no IO      types, metrics, portfolio, performance
-  data/     market-data port and adapters   PriceProvider, yahoo, twelvedata, boerseFrankfurt, proxy
+  data/     market-data port and adapters   PriceProvider, yahoo, twelvedata, eodhd, alphavantage, boerseFrankfurt, openfigi, proxy
   app/      state, scheduling, persistence   store, persistence, schema
   ui/       React views                     Overview, PerformanceView, AddAssetForm, SettingsView, PortfolioMenu
 ```
@@ -31,10 +31,13 @@ The single seam that breaks the inwards rule is intentional: the `app` store imp
 | domain | [metrics](../domain/model.md) | `AssetSnapshot`, `PortfolioSnapshot`, `SeriesPoint` result shapes |
 | domain | [portfolio](../domain/portfolio.md) | quantity, cost basis, snapshots |
 | domain | [performance](../domain/performance.md) | time-weighted return series |
-| data | [PriceProvider](../data/price-provider.md) | port + `PriceProviderError` + factory/registry/`resolveProvider` dispatch |
+| data | [PriceProvider](../data/price-provider.md) | port + `PriceProviderError` + factory/registry/`resolveProvider` dispatch + `MANUAL_REFRESH_ONLY_PROVIDERS` |
 | data | [yahoo](../data/yahoo.md) | Yahoo Finance adapter |
 | data | [twelvedata](../data/twelvedata.md) | Twelve Data adapter |
+| data | [eodhd](../data/eodhd.md) | EODHD adapter (paid, ISIN-native) |
+| data | [alphavantage](../data/alphavantage.md) | Alpha Vantage adapter (free, rate-capped) |
 | data | [Börse Frankfurt](../data/boerse-frankfurt.md) | supplementary ISIN-native quote adapter |
+| data | [OpenFIGI](../data/openfigi.md) | supplementary ISIN → ticker resolver (delegates pricing to Yahoo) |
 | app | [store](../app/store.md) | reducer, context, actions, refresh scheduling |
 | app | [persistence](../app/persistence.md) | serialize/parseImport trust boundary, localStorage |
 | app | [schema](../app/schema.md) | `Settings`, `ExportFileV1`, `DEFAULT_SETTINGS` |
@@ -45,7 +48,9 @@ The single seam that breaks the inwards rule is intentional: the `app` store imp
 
 ## Refresh data flow
 
-The central runtime workflow is the price refresh, owned by the [store](../app/store.md). On mount, on an interval (`settings.refreshMinutes`), after adding an asset/lot, and after changing provider/proxy/apiKey settings, `refresh()` fetches a quote and — only when needed — a daily price series for every symbol across all portfolios, then merges the results into `state.quotes` / `state.history`. Symbols are dispatched per-symbol via [`resolveProvider`](../data/price-provider.md#factory-and-registry-srcdataindexts): `ISIN@MIC` composites route to [Börse Frankfurt](../data/boerse-frankfurt.md), everything else to the primary provider. Fully-sold symbols (every asset using the symbol has `sale` set) skip the live quote and only fetch history up to the latest sale date.
+The central runtime workflow is the price refresh, owned by the [store](../app/store.md). On mount, on an interval (`settings.refreshMinutes` — skipped entirely for providers in `MANUAL_REFRESH_ONLY_PROVIDERS` like Alpha Vantage), after adding an asset/lot, editing an asset, and after changing provider/proxy/apiKey settings, `refresh()` fetches a quote and — only when needed — a daily price series for every symbol across all portfolios, then merges the results into `state.quotes` / `state.history`. Symbols are dispatched per-symbol via [`resolveProvider`](../data/price-provider.md#factory-and-registry-srcdataindexts): `ISIN@MIC` composites route to [Börse Frankfurt](../data/boerse-frankfurt.md), everything else to the primary provider (Yahoo, Twelve Data, EODHD, or Alpha Vantage). Fully-sold symbols (every asset using the symbol has `sale` set) skip the live quote and only fetch history up to the latest sale date.
+
+Search (`actions.search`) runs the primary provider, [Börse Frankfurt](../data/boerse-frankfurt.md), and [OpenFIGI](../data/openfigi.md) in parallel and merges results, deduplicating by ISIN and symbol so an ISIN search covers instruments any single source misses.
 
 ```mermaid
 sequenceDiagram

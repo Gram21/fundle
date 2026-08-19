@@ -1,6 +1,9 @@
 # Files
 
+- [Alpha Vantage Adapter — free, rate-capped provider](alphavantage.md) - A user-selectable PriceProvider backed by Alpha Vantage's free API — native CORS, 25 requests/day cap, rate-limit body detection, and manual-refresh-only scheduling so the auto-refresh interval is disabled while it is selected.
 - [Börse Frankfurt Adapter — ISIN-native supplementary quotes](boerse-frankfurt.md) - A supplementary PriceProvider that supplies live EUR quotes for Deutsche Börse Group instruments via the quote_box API, encoded as ISIN@MIC symbols and auto-routed by resolveProvider; history falls back to Yahoo's ISIN search.
+- [EODHD Adapter — ISIN-native paid provider](eodhd.md) - A user-selectable PriceProvider backed by EODHD's paid API — ISIN-native search across US, European and Irish/Luxembourg funds/ETFs, routed through the CORS proxy, encoding currency into a TICKER.EXCHANGE@CCY composite symbol.
+- [OpenFIGI Adapter — supplementary ISIN resolver](openfigi.md) - A supplementary PriceProvider that maps an ISIN to a Yahoo-compatible ticker via OpenFIGI's free POST mapping endpoint, then delegates quote/history to Yahoo. It is auto-merged into search results alongside the primary provider and Börse Frankfurt, and needs a custom CORS proxy that forwards POST bodies.
 - [PriceProvider Port and Provider Registry](price-provider.md) - The PriceProvider interface (search/quote/history), PriceProviderError, the createProvider factory, resolveProvider per-symbol dispatch, the PROVIDERS registry, and the multi-proxy CORS fallback helper used by the adapters.
 - [Twelve Data Adapter](twelvedata.md) - The API-key PriceProvider adapter — native CORS, no proxy, with search/quote/history endpoints and error-response detection.
 - [Yahoo Finance Adapter](yahoo.md) - The default PriceProvider adapter — search, quote and history via the Yahoo Finance chart API, all routed through a CORS proxy, with adjclose preference and null-skip deduplication.

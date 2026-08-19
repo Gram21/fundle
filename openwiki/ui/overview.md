@@ -32,6 +32,7 @@ Rows are sourced from `portfolioSnapshot(portfolio, quotes).assets`, which is al
 
 The expanded panel (`<tr className="asset-detail-row">` with `colSpan={7}`), rendered when `openAssetId === asset.id`:
 
+- **Edit asset button**: opens a `<dialog>` rendering [`AddAssetForm` in edit mode](forms.md#edit-mode-asset-prop), which edits the asset's full entry (symbol, name, currency, ISIN, WKN) and dispatches `updateAsset` + a refresh.
 - **Lot table**: Date, Quantity, Price, Fee (or `–`), and a Remove button per lot (`actions.removeLot(asset.id, lot.id)`).
 - **Add-lot form**: date (defaulting to today), quantity, price, optional fee. Validates `quantity > 0 && price > 0` before calling `actions.addLot(asset.id, { date, quantity, price, fee })`. Adding a lot triggers a [store refresh](../app/store.md#the-refresh-flow). Buying more into a closed position clears `sale` and reopens it (store `ADD_LOT` invariant).
 - **Sell form**: sale date (defaulting to today), sale price, optional fee. Pre-fills `heldQuantity` from `assetQuantity(asset)`. Validates `heldQuantity > 0` and `price > 0` before calling `actions.sellAsset(asset.id, { date, quantity: heldQuantity, price, fee })`. A sale error (e.g. nothing to sell) sets `saleError`. Selling records a full-position sale — the asset moves to the sold-assets table and stops being price-tracked.

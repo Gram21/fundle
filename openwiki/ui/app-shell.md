@@ -31,11 +31,11 @@ Holds the top-level UI state: `tab` (`'overview' | 'performance'`), `viewAll` (t
 
 <!-- openwiki: broken internal link [forms.md#portfoliomenu] heading anchor "portfoliomenu" does not exist in "forms.md". Fix the href or restore the target, then delete this comment. -->
 <!-- openwiki: broken internal link [forms.md#portfoliodialogs] heading anchor "portfoliodialogs" does not exist in "forms.md". Fix the href or restore the target, then delete this comment. -->
-- **Left**: [Logo](#logotsx), the app name, and the [PortfolioMenu](forms.md#portfoliomenu) dropdown (which embeds [PortfolioDialogs](forms.md#portfoliodialogs) for add/remove).
+- **Left**: [Logo](#logotsx), the app name, and the [PortfolioMenu](forms.md#portfoliomenu) dropdown (which embeds [PortfolioDialogs](forms.md#portfoliodialogs) for add/rename/remove).
 <!-- openwiki: broken internal link [forms.md#backupmenu] heading anchor "backupmenu" does not exist in "forms.md". Fix the href or restore the target, then delete this comment. -->
-- **Right**: an "Updated {time}" stamp, a **↻** refresh icon button (`actions.refresh()`, disabled and spinning while `status === 'loading'`), [BackupMenu](forms.md#backupmenu), a **⚙** Settings button (opens the settings dialog), and the **?** Help button.
+- **Right**: a **↻** refresh icon button (`actions.refresh()`, disabled and spinning while `status === 'loading'`), [BackupMenu](forms.md#backupmenu), a **⚙** Settings button (opens the settings dialog), and the **?** Help button.
 
-The portfolio selector, add, and delete affordances have moved into `PortfolioMenu`; the header stats now live in [Overview](overview.md), so `App.tsx` no longer computes a `portfolioSnapshot` itself.
+The portfolio selector, add, rename (✎), and delete affordances have moved into `PortfolioMenu`; the header stats now live in [Overview](overview.md), so `App.tsx` no longer computes a `portfolioSnapshot` itself.
 
 ### Error banner
 
@@ -44,6 +44,8 @@ A `role="alert"` banner shows `state.error` (resetting `errorDismissed` whenever
 ### Tab bar and main
 
 Two tabs switch `tab`; `main` renders `<Overview />` or `<PerformanceView viewAll={viewAll} />`. `PerformanceView` receives `viewAll` so it can aggregate across all portfolios when "All portfolios" is selected in the menu.
+
+A `.app-footer` renders a "Work in progress" notice below the main content.
 
 ## `format.ts` — formatting helpers
 
